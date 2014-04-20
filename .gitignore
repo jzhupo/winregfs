@@ -1,0 +1,39 @@
+#
+# Kbuild ignores
+#
+.*
+*.o
+*.o.*
+*.a
+*.s
+*.1.gz
+Kbuild
+Config.in
+
+#
+# Never ignore these
+#
+!.gitignore
+
+#
+# Normal output and testing dirs
+#
+/foo
+/mount.winregfs
+/debug.log
+
+#
+# Backups / patches
+#
+*~
+*.orig
+*.rej
+/*.patch
+
+#
+# debugging stuff
+#
+core
+.gdb_history
+.gdbinit
+

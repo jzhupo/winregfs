@@ -1,0 +1,128 @@
+                       THE WINDOWS REGISTRY FUSE FILESYSTEM
+                       ====================================
+
+     If you have any questions, comments, or patches, send me an email:
+                               jody@jodybruchon.com
+
+One of the most difficult things to deal with in years of writing Linux
+utilities to work with and repair Windows PCs is the Windows registry.
+While many excellent tools exist to work with NTFS filesystems and to change
+and remove passwords from user accounts, the ability to work with the
+registry has always been severely lacking. Included in the excellent chntpw
+package is a primitive registry editor "reged" which has largely been quite
+helpful and I have been grateful for its existence, but it suffers from a
+very limited interface and a complete lack of scriptability that presents a
+major hurdle for anyone wanting to do more with the registry than wipe out a
+password or change the "Start" flag of a system service.
+
+Because of the serious limitations of "reged," the only practical way to do
+anything registry-oriented with a shell script was to export an ENTIRE HIVE
+to a .reg file, crudely parse the file for what you want, create a .reg file
+from the script to import the changes, and import them. Needless to say, the
+process is slow, complicated, and frustrating. I even wrote a tool called
+"read_inf_section" to help my scripts parse INF/INI/REG files faster because
+of this need (but also for an unrelated need to read .inf files from driver
+packages.) This complexity became too excessive, so I came up with a much
+better way to tweak the registry from shell scripts and programs.
+
+Thus, the Windows Registry FUSE Filesystem "winregfs" was born. chntpw
+( http://pogostick.net/~pnh/ntpasswd/ ) has an excellent library for
+working with Windows NT registry hive files, distributed under the LGPL.
+winregfs is essentially a glue layer between ntreg.c and FUSE, translating
+Windows registry keys and values into ordinary directories and files.
+
+To use it, simply make a directory to mount on and point it to the registry
+hive of interest:
+
+---
+$ mkdir reg
+$ mount.winregfs /mnt/sdc2/Windows/System32/config/software reg
+---
+
+Now, you can see everything in that hive under "reg":
+
+---
+$ ls reg
+7-Zip/                  Google/              Policies/
+AVAST Software/         InstalledOptions/    Program Groups/
+Adobe/                  Intel/               RegisteredApplications/
+Analog Devices/         LibreOffice/         S3/
+C07ft5Y/                Macromedia/          Schlumberger/
+Classes/                Microsoft/           Secure/
+Clients/                Mozilla/             Sigmatel/
+Diskeeper Corporation/  MozillaPlugins/      The Document Foundation/
+GNU/                    NVIDIA Corporation/  Windows 3.1 Migration Status/
+Gabest/                 ODBC/                mozilla.org/
+Gemplus/                Piriform/
+---
+
+Let's say you want to see some things that automatically run during startup.
+
+---
+$ ls -l reg/Microsoft/Windows/CurrentVersion/Run
+total 0
+-r--r--r-- 1 root root 118 Dec 31  1969 Adobe ARM.sz
+-r--r--r-- 1 root root 124 Dec 31  1969 DiskeeperSystray.sz
+-r--r--r-- 1 root root  60 Dec 31  1969 HotKeysCmds.sz
+-r--r--r-- 1 root root  66 Dec 31  1969 IgfxTray.sz
+-r--r--r-- 1 root root  70 Dec 31  1969 KernelFaultCheck.esz
+-r--r--r-- 1 root root  66 Dec 31  1969 Persistence.sz
+-r--r--r-- 1 root root 100 Dec 31  1969 SoundMAXPnP.sz
+-r--r--r-- 1 root root 118 Dec 31  1969 avast.sz
+---
+
+You want to see what these values contain.
+
+---
+$ for X in reg/Microsoft/Windows/CurrentVersion/Run/*
+> do echo -en "$X\n   "; cat "$X"; echo; done
+reg/Microsoft/Windows/CurrentVersion/Run/Adobe ARM.sz
+   "C:\Program Files\Common Files\Adobe\ARM\1.0\AdobeARM.exe"
+
+reg/Microsoft/Windows/CurrentVersion/Run/DiskeeperSystray.sz
+   "C:\Program Files\Diskeeper Corporation\Diskeeper\DkIcon.exe"
+
+reg/Microsoft/Windows/CurrentVersion/Run/HotKeysCmds.sz
+   C:\WINDOWS\system32\hkcmd.exe
+
+reg/Microsoft/Windows/CurrentVersion/Run/IgfxTray.sz
+   C:\WINDOWS\system32\igfxtray.exe
+
+reg/Microsoft/Windows/CurrentVersion/Run/KernelFaultCheck.esz
+   %systemroot%\system32\dumprep 0 -k
+
+reg/Microsoft/Windows/CurrentVersion/Run/Persistence.sz
+   C:\WINDOWS\system32\igfxpers.exe
+
+reg/Microsoft/Windows/CurrentVersion/Run/SoundMAXPnP.sz
+   C:\Program Files\Analog Devices\Core\smax4pnp.exe
+
+reg/Microsoft/Windows/CurrentVersion/Run/avast.sz
+   "C:\Program Files\AVAST Software\Avast\avastUI.exe" /nogui
+---
+
+Has anything hijacked the Windows "shell" value that runs explorer.exe?
+
+---
+$ cat reg/Microsoft/Windows\ NT/CurrentVersion/Winlogon/Shell.sz
+Explorer.exe
+---
+
+How about the userinit.exe value?
+
+---
+$ cat reg/Microsoft/Windows\ NT/CurrentVersion/Winlogon/Userinit.sz
+C:\WINDOWS\system32\userinit.exe,
+---
+
+Perhaps check if some system policies are set (note that REG_DWORD will
+probably change in a future release to text files instead of raw data):
+
+---
+$ hexdump -C \
+> reg/Policies/Microsoft/Windows/System/Allow-LogonScript-NetbiosDisabled.dw
+00000000  01 00 00 00                                       |....|
+00000004
+---
+
+You can probably figure out what to do with it from here. ;-)
