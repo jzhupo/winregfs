@@ -16,10 +16,7 @@
  *
  * * Add write support
  *
- * * Handle slashes in names
- *
  */
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,8 +38,8 @@ const char *ext[REG_MAX+1] = {
 	"msz", "reslist", "fullres", "res_req", "qw",
 };
 
-const char slash[] = "__SLASH_";
-const int ss = sizeof(slash);
+const char slash[] = "_SLASH_";
+const int ss = sizeof(slash) - 1;
 
 /* Convert slashes to backslashes */
 static inline void slash_fix(char *path)
@@ -58,7 +55,6 @@ static inline void slash_fix(char *path)
 static int escape_fwdslash(char *path)
 {
 	int pos = 0;
-	int changed = 0;
 	char *p, *q;
 	char temp[ABSPATHLEN];
 
@@ -73,12 +69,12 @@ static int escape_fwdslash(char *path)
 		if (*p == '/') {
 			strncpy(q, slash, ss);
 			q += (ss - 1);
-			pos += (ss - 2);
+			pos = (pos + ss - 2);
 		} else *q = *p;
 		if (*p == '\0') break;
 		q++; p++;
 	}
-	if (pos = ABSPATHLEN) {
+	if (pos == ABSPATHLEN) {
 		LOG("escape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
@@ -101,15 +97,15 @@ static int unescape_fwdslash(char *path)
 	p = path;
 	q = temp;
 	for (; pos < ABSPATHLEN; pos++) {
-		if (strncmp(p, slash, ss - 1)) {
+		if (!strncmp(p, slash, ss)) {
 			*q = '/';
 			p += (ss - 1);
-			pos += (ss - 2);
+			pos += (ss - 1);
 		} else *q = *p;
 		if (*p == '\0') break;
 		q++; p++;
 	}
-	if (pos = ABSPATHLEN) {
+	if (pos == ABSPATHLEN) {
 		LOG("unescape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
@@ -244,6 +240,21 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 	return nkofs;
 }
 
+static inline int sanitize_path(const char *path, char *keypath, char *node)
+{
+	strncpy(keypath, path, ABSPATHLEN);
+	strncpy(node, path, ABSPATHLEN);
+	dirname(keypath);   /* need to read the root key */
+	strncpy(node, basename(node), ABSPATHLEN); 
+	slash_fix(keypath);
+	unescape_fwdslash(node);
+	unescape_fwdslash(keypath);
+	return 0;
+}
+
+
+/*** FUSE functions ***/
+
 static int winregfs_getattr(const char *path, struct stat *stbuf)
 {
 	struct nk_key *key;
@@ -259,11 +270,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	DLOG("getattr: %s\n", path);
 
-	strncpy(keypath, path, ABSPATHLEN);  /* because const char *path */
-	strncpy(node, path, ABSPATHLEN);
-	dirname(keypath);   /* need to read the root key */
-	strncpy(node, basename(node), ABSPATHLEN);
-	slash_fix(keypath);
+	sanitize_path(path, keypath, node);
 
 	memset(stbuf, 0, sizeof(struct stat));
 
@@ -329,8 +336,9 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	DLOG("readdir: %s\n", path);
 
-	strncpy(keypath, path, ABSPATHLEN);  /* because const char *path */
+	strncpy(keypath, path, ABSPATHLEN);
 	slash_fix(keypath);
+	unescape_fwdslash(keypath);
 
 	nkofs = get_path_nkofs(wd, keypath, &key);
 	if (!nkofs) {
@@ -343,8 +351,10 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
-			LOG("readdir: n_filler: %s\n", ex.name);
-			filler(buf, ex.name, NULL, 0);
+			DLOG("readdir: n_filler: %s\n", ex.name);
+			strncpy(filename, ex.name, ABSPATHLEN);
+			escape_fwdslash(filename);
+			filler(buf, filename, NULL, 0);
 			FREE(ex.name);
 		}
 	}
@@ -356,7 +366,8 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			else strncpy(filename, vex.name, ABSPATHLEN);
 			strncat(filename, ".", ABSPATHLEN);
 			strncat(filename, ext[vex.type], ABSPATHLEN);
-			LOG("readdir: v_filler: %s\n", filename);
+			escape_fwdslash(filename);
+			DLOG("readdir: v_filler: %s\n", filename);
 			filler(buf, filename, NULL, 0);
 			FREE(vex.name);
 		}
@@ -384,11 +395,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	}
 	/* XXX: End force read-only support */
 
-	strncpy(keypath, path, ABSPATHLEN);
-	strncpy(node, path, ABSPATHLEN);
-	dirname(keypath);   /* need to read the root key */
-	strncpy(node, basename(node), ABSPATHLEN);
-	slash_fix(keypath);
+	sanitize_path(path, keypath, node);
 
 	if (strcmp(path, "/") == 0) {
 		LOG("open: Is a directory: %s\n", path);
@@ -442,11 +449,7 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 
 	LOAD_WD();
 
-	strncpy(keypath, path, ABSPATHLEN);
-	strncpy(node, path, ABSPATHLEN);
-	dirname(keypath);   /* need to read the root key */
-	strncpy(node, basename(node), ABSPATHLEN);   /* need to read the root key */
-	slash_fix(keypath);
+	sanitize_path(path, keypath, node);
 
 	/* Extract type information, remove extension from name */
 	str_ext = strrchr(node, '.');
