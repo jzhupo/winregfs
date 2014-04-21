@@ -336,8 +336,6 @@ struct hive {
   char *filename;        /* Hives filename */
   int  filedesc;         /* File descriptor (only valid if state == OPEN) */
   int  state;            /* Current state of hive */
-  int  type;             /* Suggested type of hive. NOTE: Library will guess when
-			    it loads it, but application may change it if needed */
   int  pages;            /* Number of pages, total */
   int  useblk;           /* Total # of used blocks */
   int  unuseblk;         /* Total # of unused blocks */
@@ -408,11 +406,11 @@ struct hive *openHive(char *filename, int mode);
 void nk_ls(struct hive *hdesc, char *path, int vofs, int type);
 
 struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type);
-void del_allvalues(struct hive *hdesc, int nkofs);
+int del_allvalues(struct hive *hdesc, int nkofs);
 int del_value(struct hive *hdesc, int nkofs, char *name, int exact);
 struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name);
 int del_key(struct hive *hdesc, int nkofs, char *name);
-void rdel_keys(struct hive *hdesc, char *path, int nkofs);
+int rdel_keys(struct hive *hdesc, char *path, int nkofs);
 struct keyval *get_class(struct hive *hdesc, int curnk, char *path);
 
 int add_bin(struct hive *hdesc, int size);

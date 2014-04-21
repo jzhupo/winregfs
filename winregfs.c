@@ -39,8 +39,9 @@ const char *ext[REG_MAX+1] = {
 	"msz", "reslist", "fullres", "res_req", "qw",
 };
 
+
 /* Path parsing requires backslashes */
-inline void slash_fix(char *path)
+static inline void slash_fix(char *path)
 {
 	int i;
 
@@ -51,10 +52,9 @@ inline void slash_fix(char *path)
 
 #if ENABLE_NKOFS_CACHE_STATS
 # if ENABLE_LOGGING
-void log_cache_stats(struct winregfs_data *wd)
+static void log_cache_stats(struct winregfs_data *wd)
 {
 	float c, h;
-	time_t ctime;
 
 	/* c, h are checked to prevent divide by zero errors */
 	if (wd->delay--) return;
@@ -69,11 +69,10 @@ void log_cache_stats(struct winregfs_data *wd)
 			((wd->hash_hit * 100) / ((h>0) ? h : 1)),
 			wd->hash_fail,
 			((wd->hash_fail * 100) / ((h>0) ? h : 1)));
-	LOG("running %ds\n", time(NULL) - (wd->start_time));
 }
 # endif
 
-inline void cache_stats(struct winregfs_data *wd, char hit)
+static inline void cache_stats(struct winregfs_data *wd, char hit)
 {
 	switch (hit) {
 	case CACHE_HIT:
@@ -98,7 +97,7 @@ inline void cache_stats(struct winregfs_data *wd, char hit)
 }
 #endif /* NKOFS_CACHE_STATS */
 
-inline hash_t cache_hash(const char *string)
+static inline hash_t cache_hash(const char *string)
 {
 	hash_t hash = 0x11;
 	hash_t *input;
@@ -120,7 +119,7 @@ inline hash_t cache_hash(const char *string)
 	else return hash;
 }
 
-int get_path_nkofs(struct winregfs_data *wd, char *hivepath, struct nk_key **key)
+static int get_path_nkofs(struct winregfs_data *wd, char *hivepath, struct nk_key **key)
 {
 	int nkofs;
 
@@ -141,7 +140,7 @@ int get_path_nkofs(struct winregfs_data *wd, char *hivepath, struct nk_key **key
 			if (!strncasecmp(wd->last_path[i], hivepath, ABSPATHLEN)) {
 				nkofs = wd->last_nkofs[i];
 				*key = wd->last_key[i];
-				DLOG("get_path_nkofs: cache hit: %s %s\n", hivepath, wd->last_path[i]);
+				/* DLOG("get_path_nkofs: cache hit: %s %s\n", hivepath, wd->last_path[i]); */
 				cache_stats(wd, CACHE_HIT);
 				UNLOCK();
 				return nkofs;
@@ -152,7 +151,7 @@ int get_path_nkofs(struct winregfs_data *wd, char *hivepath, struct nk_key **key
 		if (i == wd->cache_pos) break;
 	}
 	UNLOCK();
-	DLOG("get_path_nkofs: cache miss: %s %s\n", hivepath, wd->last_path[i]);
+	/* DLOG("get_path_nkofs: cache miss: %s %s\n", hivepath, wd->last_path[i]); */
 	cache_stats(wd, CACHE_MISS);
 #endif  /* NKOFS_CACHE */
 
@@ -187,16 +186,16 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	int count = 0, countri = 0;
 	char filename[ABSPATHLEN];
 	char hivepath[ABSPATHLEN];
-	char nodepath[ABSPATHLEN];
+	char node[ABSPATHLEN];
 
-	struct winregfs_data *wd;
-	wd = fuse_get_context()->private_data;
+	LOAD_WD();
 
 	DLOG("getattr: %s\n", path);
+
 	strncpy(hivepath, path, ABSPATHLEN);  /* because const char *path */
-	strncpy(nodepath, path, ABSPATHLEN);
+	strncpy(node, path, ABSPATHLEN);
 	dirname(hivepath);   /* need to read the root key */
-	strncpy(nodepath, basename(nodepath), ABSPATHLEN);   /* need to read the root key */
+	strncpy(node, basename(node), ABSPATHLEN);
 	slash_fix(hivepath);
 
 	memset(stbuf, 0, sizeof(struct stat));
@@ -216,10 +215,11 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
-			if (!strncasecmp(nodepath, ex.name, ABSPATHLEN)) {  /* remove leading slash */
+			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
 				stbuf->st_mode = S_IFDIR | 0555;
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
+				DLOG("getattr: ex_n: %p size %d c %d cri %d\n", path, ex.nk->no_subkeys, count, countri);
 				return 0;
 			}
 			FREE(ex.name);
@@ -233,15 +233,17 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 			else strncpy(filename, vex.name, ABSPATHLEN);
 			strncat(filename, ".", ABSPATHLEN);
 			strncat(filename, ext[vex.type], ABSPATHLEN);
-			if (!strncasecmp(nodepath, filename, ABSPATHLEN)) {
+			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				stbuf->st_mode = S_IFREG | 0444;
 				stbuf->st_nlink = 1;
 				stbuf->st_size = vex.size;
+				DLOG("getattr: ex_v: %p size %d c %d\n", path, vex.size, count);
 				return 0;
 			}
 			FREE(vex.name);
 		}
 	}
+	LOG("getattr: not found: %s\n", path);
 	return -ENOENT;
 }
 
@@ -256,10 +258,10 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	char filename[ABSPATHLEN];
 	char hivepath[ABSPATHLEN];
 
-	struct winregfs_data *wd;
-	wd = fuse_get_context()->private_data;
+	LOAD_WD();
 
 	DLOG("readdir: %s\n", path);
+
 	strncpy(hivepath, path, ABSPATHLEN);  /* because const char *path */
 	slash_fix(hivepath);
 
@@ -269,8 +271,12 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		return -ENOENT;
 	}
 
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+			LOG("readdir: n_filler: %s\n", ex.name);
 			filler(buf, ex.name, NULL, 0);
 			FREE(ex.name);
 		}
@@ -283,6 +289,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			else strncpy(filename, vex.name, ABSPATHLEN);
 			strncat(filename, ".", ABSPATHLEN);
 			strncat(filename, ext[vex.type], ABSPATHLEN);
+			LOG("readdir: v_filler: %s\n", filename);
 			filler(buf, filename, NULL, 0);
 			FREE(vex.name);
 		}
@@ -299,10 +306,9 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	int count = 0, countri = 0;
 	char filename[ABSPATHLEN];
 	char hivepath[ABSPATHLEN];
-	char nodepath[ABSPATHLEN];
+	char node[ABSPATHLEN];
 
-	struct winregfs_data *wd;
-	wd = fuse_get_context()->private_data;
+	LOAD_WD();
 
 	/* FIXME: Force read-only access until write support added */
 	if ((fi->flags & 3) != O_RDONLY) {
@@ -312,9 +318,9 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	/* XXX: End force read-only support */
 
 	strncpy(hivepath, path, ABSPATHLEN);
-	strncpy(nodepath, path, ABSPATHLEN);
+	strncpy(node, path, ABSPATHLEN);
 	dirname(hivepath);   /* need to read the root key */
-	strncpy(nodepath, basename(nodepath), ABSPATHLEN);   /* need to read the root key */
+	strncpy(node, basename(node), ABSPATHLEN);
 	slash_fix(hivepath);
 
 	if (strcmp(path, "/") == 0) {
@@ -330,8 +336,8 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
-			if (!strncasecmp(nodepath, ex.name, ABSPATHLEN)) {  /* remove leading slash */
-				LOG("open: Is a directory: %s\n", nodepath);
+			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
+				LOG("open: Is a directory: %s\n", node);
 				return -EISDIR;
 			}
 			FREE(ex.name);
@@ -345,7 +351,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 			else strncpy(filename, vex.name, ABSPATHLEN);
 			strncat(filename, ".", ABSPATHLEN);
 			strncat(filename, ext[vex.type], ABSPATHLEN);
-			if (!strncasecmp(nodepath, filename, ABSPATHLEN)) return 0;
+			if (!strncasecmp(node, filename, ABSPATHLEN)) return 0;
 			FREE(vex.name);
 		}
 	}
@@ -356,7 +362,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 static int winregfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	int nkofs;
-	char nodepath[ABSPATHLEN];
+	char node[ABSPATHLEN];
 	char hivepath[ABSPATHLEN];
 
 	struct nk_key *key;
@@ -367,17 +373,16 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	char *str_ext, *string = NULL;
 	struct keyval *kv = NULL;
 
-	struct winregfs_data *wd;
-	wd = fuse_get_context()->private_data;
+	LOAD_WD();
 
 	strncpy(hivepath, path, ABSPATHLEN);
-	strncpy(nodepath, path, ABSPATHLEN);
+	strncpy(node, path, ABSPATHLEN);
 	dirname(hivepath);   /* need to read the root key */
-	strncpy(nodepath, basename(nodepath), ABSPATHLEN);   /* need to read the root key */
+	strncpy(node, basename(node), ABSPATHLEN);   /* need to read the root key */
 	slash_fix(hivepath);
 
 	/* Extract type information, remove extension from name */
-	str_ext = strrchr(nodepath, '.');
+	str_ext = strrchr(node, '.');
 	*str_ext = '\0';
 	str_ext++;
 	for (i = 0; i < REG_MAX; i++) {
@@ -388,7 +393,7 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 		return -EINVAL;
 	}
 
-	if (*nodepath == '@') *nodepath = '\0';
+	if (*node == '@') *node = '\0';
 
 	nkofs = get_path_nkofs(wd, hivepath, &key);
 	if (!nkofs) {
@@ -396,22 +401,22 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 		return -ENOENT;
 	}
 
-	type = get_val_type(wd->hive, nkofs, nodepath, TPF_VK_EXACT);
+	type = get_val_type(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (type == -1) {
-		LOG("read: No such value %s\n",nodepath);
+		LOG("read: No such value %s\n", node);
 		return -EINVAL;
 	}
 
-	len = get_val_len(wd->hive, nkofs, nodepath, TPF_VK_EXACT);
+	len = get_val_len(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (!len) {
-		LOG("read: Value %s has zero length\n",nodepath);
+		LOG("read: Value %s has zero length\n", node);
 		return -EINVAL;
 	}
 
-	kv = get_val2buf(wd->hive, NULL, nkofs, nodepath, 0, TPF_VK_EXACT);
+	kv = get_val2buf(wd->hive, NULL, nkofs, node, 0, TPF_VK_EXACT);
 
 	if (!kv) {
-		LOG("read: Value %s could not fetch data\n",nodepath);
+		LOG("read: Value %s could not fetch data\n", node);
 		return -EINVAL;
 	}
 	data = (void *)&(kv->data);
@@ -488,11 +493,7 @@ int main(int argc, char *argv[])
 
 	wd = (struct winregfs_data *) malloc(sizeof(struct winregfs_data));
 	if (!wd) goto oom;
-	wd->hive = openHive(file, HMODE_RW);
-	if (!wd->hive) {
-		fprintf(stderr, "Error: couldn't open %s\n", file);
-		return 1;
-	}
+
 #if ENABLE_LOGGING
 	wd->log = fopen("debug.log", "w");
 	if (!wd->log) {
@@ -515,16 +516,20 @@ int main(int argc, char *argv[])
 	pthread_mutex_init(wd->lock, NULL);
 # endif /* THREADED */
 	wd->cache_pos = CACHE_ITEMS - 1;
-#if ENABLE_NKOFS_CACHE_STATS
+# if ENABLE_NKOFS_CACHE_STATS
 	wd->cache_miss = 0;
 	wd->cache_hit = 0;
 	wd->hash_miss = 0;
 	wd->hash_hit = 0;
 	wd->hash_fail = 0;
 	wd->delay = 1;
-	wd->start_time = time(NULL);
 # endif
 #endif /* NKOFS_CACHE */
+	wd->hive = openHive(file, HMODE_RW);
+	if (!wd->hive) {
+		fprintf(stderr, "Error: couldn't open %s\n", file);
+		return 1;
+	}
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
 	LOG("winregfs terminated OK\n");

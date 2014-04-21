@@ -62,17 +62,31 @@ typedef uint8_t hash_t;
 typedef uint_fast32_t hash_t;
 #endif
 
-/* Enable/disable logging */
+/* Shortcut to pull winregfs_data structure into a function
+   This MUST BE PLACED between variable declarations and code in ANY
+   function that uses winregfs logging or data */
+#define LOAD_WD() struct winregfs_data *wd; \
+		  wd = fuse_get_context()->private_data;
+
+/* Enable/disable logging
+   We check wd for non-NULL before logging since wd may be unallocated
+   during startup before fuse_main() */
 #if ENABLE_LOGGING
-#define LOG(...) fprintf(wd->log, __VA_ARGS__); fflush(wd->log)
+#define LOG(...) if (wd) { \
+			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
+		  } else fprintf(stderr, __VA_ARGS__);
 #else
-#define LOG(...)
+#define LOG(...) fprintf(stderr, __VA_ARGS__);
 #endif
+/* Use DLOG for places where logging may be high-volume */
 #if ENABLE_DEBUG_LOGGING
-#define DLOG(...) fprintf(wd->log, __VA_ARGS__); fflush(wd->log)
+#define DLOG(...) if (wd) { \
+			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
+		  } else fprintf(stderr, __VA_ARGS__);
 #else
-#define DLOG(...)
+#define DLOG(...) fprintf(stderr, __VA_ARGS__);
 #endif
+
 
 /* Threaded mode mutex */
 #if ENABLE_THREADED
@@ -99,7 +113,6 @@ struct winregfs_data {
 	struct nk_key *last_key[CACHE_ITEMS];
 	hash_t hash[CACHE_ITEMS];
 # if ENABLE_NKOFS_CACHE_STATS
-	time_t start_time;  /* Benchmark program performance */
 	int delay;  /* Cache log throttling interval */
 	int cache_miss;
 	int cache_hit;
