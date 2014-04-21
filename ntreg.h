@@ -25,8 +25,8 @@
  */ 
 
 
-#ifndef _INCLUDE_NTREG_H
-#define _INCLUDE_NTREG_H 1
+#ifndef _NTREG_H
+#define _NTREG_H
 
 #define SZ_MAX     4096       /* Max unicode strlen before we truncate */
 

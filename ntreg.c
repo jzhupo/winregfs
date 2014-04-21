@@ -39,6 +39,7 @@
 #include <stdarg.h>
 
 #include "ntreg.h"
+#include "winregfs.h"
 
 /* Set to abort() and debug on more critical errors */
 #define DOCORE 1
@@ -1457,7 +1458,7 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
 
   } else { /* 4 bytes or less are inlined */
 /*    datablk = vkofs + (int32_t)&(vkkey->ofs_data) - (int32_t)vkkey; */
-    datablk = vkofs + (int)&(vkkey->ofs_data) - (int)vkkey;
+    datablk = vkofs + (int)(&(vkkey->ofs_data) - (int *)vkkey);
     size |= 0x80000000;
   }
 

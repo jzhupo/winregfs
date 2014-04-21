@@ -33,6 +33,12 @@
 #include "ntreg.h"
 #include "winregfs.h"
 
+/* Value type file extensions */
+const char *ext[REG_MAX+1] = {
+	"none", "sz", "esz", "bin", "dw", "dwbe", "lnk",
+	"msz", "reslist", "fullres", "res_req", "qw",
+};
+
 /* Path parsing requires backslashes */
 inline void slash_fix(char *path)
 {
@@ -131,39 +137,31 @@ int get_path_nkofs(struct winregfs_data *wd, char *hivepath, struct nk_key **key
 	while (1) {
 		if (!wd->hash[i]) break;  /* 0 = end of recorded hashes */
 		if (wd->hash[i] == hash) {
-# if ENABLE_NKOFS_CACHE_STATS
 			cache_stats(wd, HASH_HIT);
-# endif
 			if (!strncasecmp(wd->last_path[i], hivepath, ABSPATHLEN)) {
 				nkofs = wd->last_nkofs[i];
 				*key = wd->last_key[i];
 				DLOG("get_path_nkofs: cache hit: %s %s\n", hivepath, wd->last_path[i]);
-# if ENABLE_NKOFS_CACHE_STATS
 				cache_stats(wd, CACHE_HIT);
 				UNLOCK();
 				return nkofs;
 			} else cache_stats(wd, HASH_FAIL);
 		} else cache_stats(wd, HASH_MISS);
-# else
-				UNLOCK();
-				return nkofs;
-			}
-		}
-# endif
 		if (!i) i = CACHE_ITEMS;
 		i--;
 		if (i == wd->cache_pos) break;
 	}
 	UNLOCK();
 	DLOG("get_path_nkofs: cache miss: %s %s\n", hivepath, wd->last_path[i]);
-# if ENABLE_NKOFS_CACHE_STATS
 	cache_stats(wd, CACHE_MISS);
-# endif
 #endif  /* NKOFS_CACHE */
 
 	/* Cached path didn't match, traverse and get offset */
 	nkofs = trav_path(wd->hive, 0, hivepath, TPF_NK_EXACT);
-	if(!nkofs) return 0;
+	if(!nkofs) {
+		LOG("get_path_nkofs: trav_path failed: %s\n", hivepath);
+		return 0;
+	}
 	nkofs += 4;
 
 	*key = (struct nk_key *)(wd->hive->buffer + nkofs);
@@ -266,7 +264,10 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	slash_fix(hivepath);
 
 	nkofs = get_path_nkofs(wd, hivepath, &key);
-	if (!nkofs) return -ENOENT;
+	if (!nkofs) {
+		LOG("readdir: get_path_nkofs failed: %s\n", hivepath);
+		return -ENOENT;
+	}
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
@@ -322,7 +323,10 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	}
 
 	nkofs = get_path_nkofs(wd, hivepath, &key);
-	if (!nkofs) return -ENOENT;
+	if (!nkofs) {
+		LOG("open: get_path_nkofs failed: %s\n", hivepath);
+		return -ENOENT;
+	}
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
@@ -387,6 +391,10 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	if (*nodepath == '@') *nodepath = '\0';
 
 	nkofs = get_path_nkofs(wd, hivepath, &key);
+	if (!nkofs) {
+		LOG("read: get_path_nkofs failed: %s\n", hivepath);
+		return -ENOENT;
+	}
 
 	type = get_val_type(wd->hive, nkofs, nodepath, TPF_VK_EXACT);
 	if (type == -1) {
@@ -443,6 +451,15 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	FREE(kv);
 	return size;
 }
+
+/* Required for FUSE to use these functions */
+static struct fuse_operations winregfs_oper = {
+	.getattr	= winregfs_getattr,
+	.readdir	= winregfs_readdir,
+	.open		= winregfs_open,
+	.read		= winregfs_read,
+};
+
 
 int main(int argc, char *argv[])
 {
@@ -510,7 +527,7 @@ int main(int argc, char *argv[])
 #endif /* NKOFS_CACHE */
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
-	LOG("winregfs closed OK.\n");
+	LOG("winregfs terminated OK\n");
 #if ENABLE_LOGGING
 	fclose(wd->log);
 #endif

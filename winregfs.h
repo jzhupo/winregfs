@@ -7,10 +7,13 @@
  *
  */
 
+#ifndef _WINREGFS_H
+#define _WINREGFS_H
+
 #define VER "0.1"
 #define VERDATE "2014-04-20"
 
-#define FUSE_USE_VERSION 28
+#define FUSE_USE_VERSION 26
 #include <fuse.h>
 #include "config.h"
 
@@ -42,13 +45,9 @@
 #define HASH_HIT 2
 #define HASH_MISS 3
 #define HASH_FAIL 4
+#else
+#define cache_stats(a,b)
 #endif /* NKOFS_CACHE_STATS */
-
-/* Value type file extensions */
-const char *ext[REG_MAX+1] = {
-	"none", "sz", "esz", "bin", "dw", "dwbe", "lnk",
-	"msz", "reslist", "fullres", "res_req", "qw",
-};
 
 /* Set hash width from config file */
 #if HASH == 64
@@ -114,24 +113,4 @@ struct winregfs_data {
 #endif
 };
 
-
-/* Function prototypes */
-
-#if ENABLE_NKOFS_CACHE_STATS
-void cache_stats(struct winregfs_data *, char);
-#endif /* NKOFS_CACHE_STATS */
-
-inline void slash_fix(char *);
-inline hash_t cache_hash(const char *);
-int get_path_nkofs(struct winregfs_data *, char *, struct nk_key **);
-static int winregfs_getattr(const char *, struct stat *);
-static int winregfs_readdir(const char *, void *, fuse_fill_dir_t, off_t, struct fuse_file_info *);
-static int winregfs_open(const char *, struct fuse_file_info *);
-static int winregfs_read(const char *, char *, size_t, off_t, struct fuse_file_info *);
-
-static struct fuse_operations winregfs_oper = {
-	.getattr	= winregfs_getattr,
-	.readdir	= winregfs_readdir,
-	.open		= winregfs_open,
-	.read		= winregfs_read,
-};
+#endif /* _WINREGFS_H */
