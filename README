@@ -31,12 +31,17 @@ working with Windows NT registry hive files, distributed under the LGPL.
 winregfs is essentially a glue layer between ntreg.c and FUSE, translating
 Windows registry keys and values into ordinary directories and files.
 
-To use it, simply make a directory to mount on and point it to the registry
+winregfs features case-insensitivity and forward-slash escaping. A few keys
+and value names in the Windows registry such as MIME types contain forward
+slash characters; winregfs substitutes "_SLASH_" where a forward slash appears
+in names.
+
+To use winregfs, make a directory to mount on and point it to the registry
 hive of interest:
 
 ---
 $ mkdir reg
-$ mount.winregfs /mnt/sdc2/Windows/System32/config/software reg
+$ mount.winregfs /mnt/sdc2/Windows/System32/config/software reg/
 ---
 
 Now, you can see everything in that hive under "reg":
