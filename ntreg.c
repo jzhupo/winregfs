@@ -177,7 +177,7 @@ char *mem_str( const char *str, int len )
 int find_in_buf(char *buf, char *what, int sz, int len, int start)
 {
    int i;
-   
+
    for (; start < sz; start++) {
       for (i = 0; i < len; i++) {
 	if (*(buf+start+i) != *(what+i)) break;
@@ -197,10 +197,8 @@ int get_int(char *array)
 
 
 /* Quick and dirty UNICODE to std. ascii */
-
 void cheap_uni2ascii(char *src, char *dest, int l)
 {
-   
    for (; l > 0; l -=2) {
       *dest = *src;
       dest++; src +=2;
@@ -244,7 +242,6 @@ struct keyval *reg_valcat(struct keyval *a, struct keyval *b)
   result->len = newsize;
 
   return result;
-
 }
 
 
@@ -325,11 +322,8 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
   LOAD_WD();
 
   p = (struct hbin_page *)(hdesc->buffer + pofs);
-
   while (vofs-pofs < (p->ofs_next - HBIN_ENDFILL)) {
-
     seglen = get_int(hdesc->buffer+vofs);  
-
     if (seglen == 0) {
       LOG("find_free_blk: Zero data block size; block at offset %0x\n",vofs);
       if ( (vofs - pofs) == (p->ofs_next - 4) ) {
@@ -369,7 +363,6 @@ int find_free(struct hive *hdesc, int size)
   if (size & 7) size += (8 - (size & 7));
 
   /* Again, assume start at 0x1000 */
-
   r = 0x1000;
   while (r < hdesc->endofs) {
     h = (struct hbin_page *)(hdesc->buffer + r);
@@ -443,14 +436,12 @@ int add_bin(struct hive *hdesc, int size)
   hdr->filesize = newbinofs + r - 0x1000;               /* Point header to new end of data */
 
   /* Update state */
-
   hdesc->state |= HMODE_DIDEXPAND | HMODE_DIRTY;
   hdesc->lastbin = newbinofs;  /* Last bin */
   hdesc->endofs = newbinofs + r;   /* New data end */
 
   return (newbinofs + 0x20);
 }
-
 
 
 /* Allocate a block of requested size if possible
@@ -586,19 +577,16 @@ int free_block(struct hive *hdesc, int blk)
 
   p = (struct hbin_page *)(hdesc->buffer + pofs);
   vofs = pofs + 0x20;
-
   prevsz = -32;
 
   if (vofs != blk) {  /* Block is not at start of page? */
     while (vofs-pofs < (p->ofs_next - HBIN_ENDFILL) ) {
 
       seglen = get_int(hdesc->buffer+vofs);
-
       if (seglen == 0) {
 	LOG("free_block: Zero data block size (not registry or corrupt file?)\n");
 	return 0;
       }
-
       if (seglen < 0) {
 	seglen = -seglen;
       } 
@@ -611,9 +599,7 @@ int free_block(struct hive *hdesc, int blk)
       LOG("free_block: Ran off end of page. Error in chains? vofs %x, pofs %x, blk %x\n",vofs,pofs,blk);
       return 0;
     }
-    
     prevsz = get_int(hdesc->buffer+prev);
-    
   }
 
   /* We also need details on next block (unless at end of page) */
@@ -641,7 +627,7 @@ int free_block(struct hive *hdesc, int blk)
   hdesc->unuseblk--;
 
   hdesc->state |= HMODE_DIRTY;
- 
+
   /* Check if previous block is also free, if so, merge.. */
   if (prevsz > 0) {
     hdesc->usetot -= prevsz;
@@ -834,7 +820,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
 
   maxlen = (maxlen < ABSPATHLEN ? maxlen : ABSPATHLEN);
   key = (struct nk_key *)(hdesc->buffer + nkofs);
-  
+
   if (key->id != 0x6b6e) {
     LOG("get_abs_path: Not a 'nk' node\n");
     return 0;
@@ -1071,7 +1057,6 @@ void nk_ls(struct hive *hdesc, char *path, int vofs, int type)
   struct ex_data ex;
   struct vex_data vex;
   int count = 0, countri = 0;
-  
 
   nkofs = trav_path(hdesc, vofs, path, 0);
 
@@ -1150,8 +1135,6 @@ int set_val_type(struct hive *hdesc, int vofs, char *path, int exact, int type)
   return vkkey->val_type;
 }
 
-
-
 /* Get len of a value, given current key + path */
 int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 {
@@ -1196,7 +1179,6 @@ void *get_val_data(struct hive *hdesc, int vofs, char *path, int val_type, int e
   }
   vkofs +=4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
-
 
   if (vkkey->len_data == 0) {
     LOG("get_val_data: zero-length value data: %s\n", path);
@@ -1282,14 +1264,10 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
 
       point += copylen;
       restlen -= copylen;
-
     }
-
-
   } else {    
     if (l && kr && keydataptr) memcpy(&(kr->data), keydataptr, l);
   }
-
   return kr;
 }
 
@@ -1360,36 +1338,34 @@ int free_val_data(struct hive *hdesc, int vkofs)
     if (len > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
 
       db = (struct db_key *)(hdesc->buffer + vkkey->ofs_data + 0x1004);
-      
-      if (db->id != 0x6264) abort();
-      
+      if (db->id != 0x6264) {
+	      LOG("free_val_data: db id incorrect\n");
+	      return -1;
+      }
       parts = db->no_part;
       list = db->ofs_data + 0x1004;
-      
+
       DLOG("free_val_data: Long value: parts %d, list %x\n", parts, list);
-      
+
       for (i = 0; i < parts; i++) {
 	blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
 	blocksize = -get_int(hdesc->buffer + blockofs);
 	LOG("free_val_data: Freeing long block %d: offset %x, size %x (%d)\n",i, blockofs, blocksize, blocksize);
 	free_block(hdesc, blockofs);		
       }
-      
+
       DLOG("free_val_data: Freeing indirect list at %x\n", list-4);
       free_block(hdesc, list - 4);
       DLOG("free_val_data: Freeing db structure at %x\n", vkkey->ofs_data + 0x1000);
     } /* Fall through to regular which deallocs data or db block ofs_data point to */
-      
+
     if (len) free_block(hdesc, vkkey->ofs_data + 0x1000);  
-      
+
   } /* inline check */
-
-
   vkkey->len_data = 0;
   vkkey->ofs_data = 0;
 
   return vkofs;
-
 }
 
 
@@ -1420,8 +1396,10 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
   vkofs +=4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
 
-
-  free_val_data(hdesc, vkofs);   /* Get rid of old data if any */
+  if (free_val_data(hdesc, vkofs) < 0) {   /* Get rid of old data if any */
+	  LOG("alloc_val_data: error freeing old data\n");
+	  return 0;
+  }
 
   /* Allocate space for new data */
   if (size > 4) {
@@ -1467,7 +1445,6 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
   /* Link in new datablock */
   if ( !(size & 0x80000000)) vkkey->ofs_data = datablk - 0x1000;
   vkkey->len_data = size;
- 
   return (datablk + 4);
 }
 
@@ -1507,7 +1484,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   }
 
   if (!strcmp(name,"@")) name = blank;
- 
+
   if (nk->no_values) oldvlist = nk->ofs_vallist;
 
   newvlist = alloc_block(hdesc, nkofs, nk->no_values * 4 + 4);
@@ -1579,51 +1556,14 @@ int del_vk(struct hive *hdesc, int vkofs)
     LOG("del_vk: Key pointer not to 'vk' node\n");
     return 1;
   }
-  
+
   if ( !(vk->len_data & 0x80000000) && vk->ofs_data) {
-    free_val_data(hdesc, vkofs);
+    if(free_val_data(hdesc, vkofs) < 0) {
+	    LOG("del_vk: error freeing value data\n");
+	    return -1;
+    }
   }
   free_block(hdesc, vkofs - 4);
-  return 0;
-}
-
-/* Delete all values from key (used in recursive delete)
- * hdesc - hive
- * nkofs - current keyoffset
- */
-
-int del_allvalues(struct hive *hdesc, int nkofs)
-{
-  int vlistofs, o, vkofs;
-  int32_t *vlistkey;
-  struct nk_key *nk;
-
-  LOAD_WD();
-
-  nk = (struct nk_key *)(hdesc->buffer + nkofs);
-  if (nk->id != 0x6b6e) {
-    LOG("del_allvalues: Key pointer not to 'nk' node\n");
-    return 1;
-  }
-
-  if (!nk->no_values) {
-    LOG("del_avalues: Key at offset %x has no values\n", nkofs);
-    return 1;
-  }
-
-  vlistofs = nk->ofs_vallist + 0x1004;
-  vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
-
-  /* Loop through index and delete all vk's */
-  for (o = 0; o < nk->no_values; o++) {
-    vkofs = vlistkey[o] + 0x1004;
-    del_vk(hdesc, vkofs);
-  }
-
-  /* Then zap the index, and update nk */
-  free_block(hdesc, vlistofs-4);
-  nk->ofs_vallist = -1;
-  nk->no_values = 0;
   return 0;
 }
 
@@ -1705,8 +1645,6 @@ int del_value(struct hive *hdesc, int nkofs, char *name, int exact)
 }
 
 
-
-
 /* Add a subkey to a key
  * hdesc - usual..
  * nkofs - offset of current nk
@@ -1739,10 +1677,10 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 
   slot = -1;
   if (key->no_subkeys) {   /* It already has subkeys */
-    
+
     oldlfofs = key->ofs_lf;
     oldliofs = key->ofs_lf;
-   
+
     oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
     if (oldlf->id != 0x666c && oldlf->id != 0x686c && oldlf->id != 0x696c && oldlf->id != 0x6972)  {
       LOG("add_key: index type not supported: 0x%04x\n",oldlf->id);
@@ -1837,8 +1775,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	}
 	if (slot == -1) slot = oldlf->no_keys;
       } /* li else check */
-
-
     } while ( (rislot < rimax) && (rimax > 0));  /* 'ri' wrapper loop */
 
   } else { /* Parent was empty, make new index block */
@@ -1848,7 +1784,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     newlf->id = hdesc->nkindextype;
     slot = 0;
   } /* if has keys before */
-
 
   /* Make and fill in new nk */
   newnkofs = alloc_block(hdesc, nkofs, sizeof(struct nk_key) + strlen(name));
@@ -1860,7 +1795,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   }
   key = (struct nk_key *)(hdesc->buffer + nkofs);  /* In case buffer moved */
   newnk = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
-  
+
   newnk->id            = 0x6b6e;
   newnk->type          = KEY_NORMAL;    /* Some versions use 0x1020 a lot.. */
   newnk->ofs_parent    = nkofs - 0x1004;
@@ -1873,13 +1808,13 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
   newnk->len_name      = strlen(name);
   newnk->len_classnam  = 0;
   memcpy(newnk->keyname, name, newnk->len_name);
-  
+
   if (newli) {  /* Handle li */
 
     /* And put its offset into parents index list */
     newli->hash[slot].ofs_nk = newnkofs - 0x1000;
     newli->no_keys++;
-    
+
     /* Allocate space for our new li list and copy it into reg */
     newliofs = alloc_block(hdesc, nkofs, 8 + 4*newli->no_keys);
     if (!newliofs) {
@@ -1896,10 +1831,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	    LOG("add_key: fill_block failed\n");
 	    return NULL;
     }
-
-
   } else {  /* lh or lf */
-
     /* And put its offset into parents index list */
     newlf->hash[slot].ofs_nk = newnkofs - 0x1000;
     newlf->no_keys++;
@@ -1916,7 +1848,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       }
       newlf->lh_hash[slot].hash = hash;
     }
-    
+
     /* Allocate space for our new lf list and copy it into reg */
     newlfofs = alloc_block(hdesc, nkofs, 8 + 8*newlf->no_keys);
     if (!newlfofs) {
@@ -1925,7 +1857,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       LOG("add_key: unable to allocate space for new index table for %s\n", name);
       return NULL;
     }
-
     key = (struct nk_key *)(hdesc->buffer + nkofs);  /* In case buffer moved */
     newnk = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
 
@@ -1935,8 +1866,6 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	    return NULL;
     }
   } /* li else */
-
-
   /* Update parent, and free old lf list */
   key->no_subkeys++;
   if (ri) {  /* ri index */
@@ -1992,7 +1921,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 
   oldlfofs = key->ofs_lf;
   oldliofs = key->ofs_lf;
-  
+
   oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
   if (oldlf->id != 0x666c && oldlf->id != 0x686c && oldlf->id != 0x696c && oldlf->id != 0x6972)  {
     LOG("del_key: index other than 'lf', 'li' or 'lh' not supported: 0x%04x\n", oldlf->id);
@@ -2006,30 +1935,29 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
     riofs = key->ofs_lf;
     ri = (struct ri_key *)(hdesc->buffer + riofs + 0x1004);
     rimax = ri->no_lis-1;
-    
+
     rislot = -1; /* Starts at slot 0 below */
-    
   }
-  
+
   do {   /* 'ri' loop, at least run once if no 'ri' deep index */
-    
+
     if (ri) { /* Do next 'ri' slot */
       rislot++;
       oldliofs = ri->hash[rislot].ofs_li;
       oldlfofs = ri->hash[rislot].ofs_li;
     }
-    
+
     oldli = (struct li_key *)(hdesc->buffer + oldliofs + 0x1004);
     oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
-    
+
     slot = -1;
-    
+
     if (oldlf->id == 0x696c) {   /* 'li' handler */
       FREE(newli);
       ALLOC(newli, 8 + 4*oldli->no_keys - 4, 1);
       newli->no_keys = oldli->no_keys - 1; no_keys = newli->no_keys;
       newli->id = oldli->id;
-      
+
       /* Now copy old, checking where to delete */
       for (o = 0, n = 0; o < oldli->no_keys; o++,n++) {
 	onkofs = oldli->hash[o].ofs_nk;
@@ -2042,15 +1970,14 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	}
 	newli->hash[n].ofs_nk = oldli->hash[o].ofs_nk;
       }
-      
-      
+
     } else { /* 'lf' or 'lh' are similar */
-      
+
       FREE(newlf);
       ALLOC(newlf, 8 + 8*oldlf->no_keys - 8, 1);
       newlf->no_keys = oldlf->no_keys - 1; no_keys = newlf->no_keys;
       newlf->id = oldlf->id;
-      
+
       /* Now copy old, checking where to delete */
       for (o = 0, n = 0; o < oldlf->no_keys; o++,n++) {
 
@@ -2110,8 +2037,6 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
     oldli = (struct li_key *)(hdesc->buffer + oldliofs + 0x1004);
     oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
 
-
-
     /*    memcpy(hdesc->buffer + newlfofs + 4,
 	   ((void *)newlf ? (void *)newlf : (void *)newli), 8 + (newlf ? 8 : 4) * no_keys);
     */
@@ -2120,8 +2045,6 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	    LOG("del_key: fill_block failed\n");
 	    return 1;
     }
-
-
   } else {  /* Last deleted, will throw away index */
     newlfofs = 0xfff;  /* We subtract 0x1000 later */
   }
@@ -2197,57 +2120,6 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
   return 0;
 }
 
-/* Recursive delete keys
- * hdesc - usual..
- * nkofs - offset of current nk
- * name  - name of key to delete
- * return: 0 - ok, 1 fail
- */
-int rdel_keys(struct hive *hdesc, char *path, int vofs)
-{
-  struct nk_key *key;
-  int nkofs;
-  struct ex_data ex;
-  int count = 0, countri = 0;
-  
-  LOAD_WD();
-
-  if (!path || !*path) {
-	  LOG("rdel_keys: Null or empty path given\n");
-	  return 1;
-  }
-
-
-  nkofs = trav_path(hdesc, vofs, path, TPF_NK_EXACT);
-
-  if(!nkofs) {
-    LOG("rdel_keys: Key not found: %s\n", path);
-    return 1;
-  }
-  nkofs += 4;
-
-  key = (struct nk_key *)(hdesc->buffer + nkofs);
-
-  if (key->id != 0x6b6e) {
-    LOG("rdel_keys: Not a 'nk' node\n");
-    return 1;
-  }
-  
-  if (key->no_subkeys) {
-    while ((ex_next_n(hdesc, nkofs, &count, &countri, &ex) > 0)) {
-      rdel_keys(hdesc, ex.name, nkofs);
-      count = 0;
-      countri = 0;
-      FREE(ex.name);
-    }
-  }
-
-  del_allvalues(hdesc, nkofs);
-  key = (struct nk_key *)(hdesc->buffer + nkofs);
-  del_key(hdesc, key->ofs_parent+0x1004, path);
-  return 0;
-}
-
 
 /* Get and copy keys CLASS-data (if any) to buffer
  * Returns a buffer with the data (first int32_t is size). see ntreg.h
@@ -2285,13 +2157,12 @@ struct keyval *get_class(struct hive *hdesc,
 
   dofs = key->ofs_classnam;
   classdata = (void *)(hdesc->buffer + dofs + 0x1004);
-  
+
   ALLOC(data, sizeof(struct keyval) + clen,1);
   data->len = clen;
   memcpy(&data->data, classdata, clen);
   return data;
 }
-
 
 /* Write to registry value.
  * If same size as existing, copy back in place to avoid changing too much
@@ -2365,7 +2236,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   } else {
     memcpy(keydataptr, &kv->data, kv->len);
   }
-  
+
   hdesc->state |= HMODE_DIRTY;
   return (kv->len);
 }
@@ -2378,7 +2249,7 @@ int put_dword(struct hive *hdesc, int vofs, char *path, int exact, int dword)
   int r;
 
   ALLOC(kr,1,sizeof(int)+sizeof(int));
-  
+
   kr->len = sizeof(int);
   kr->data = dword;
 
@@ -2437,7 +2308,6 @@ char *string_regw2prog(void *string, int len)
         }
     }
     cstring[out_len] = '\0';
-
     return cstring;
 }
 
@@ -2504,7 +2374,6 @@ int de_escape(char *s, int wide)
 
 
 /* ================================================================ */
-
 /* Hive control (load/save/close) etc */
 
 void closeHive(struct hive *hdesc)
@@ -2538,9 +2407,7 @@ int32_t calc_regfsum(struct hive *hdesc)
 }
 
 
-
 /* Write the hive back to disk (only if dirty & not readonly) */
-
 int writeHive(struct hive *hdesc)
 {
   int len;
@@ -2632,8 +2499,6 @@ struct hive *openHive(char *filename, int mode)
       return NULL;
     }
   }
-
-
   if ( fstat(hdesc->filedesc,&sbuf) ) {
     perror("stat()");
     exit(1);
@@ -2658,8 +2523,7 @@ struct hive *openHive(char *filename, int mode)
     return NULL;
   }
   if (rt < hdesc->size) {
-    fprintf(stderr,"Could not read file, got %d bytes while expecting %d\n",
-	    r, hdesc->size);
+    LOG("openHive: error: read %d bytes (expected %d) \n", r, hdesc->size);
     closeHive(hdesc);
     return NULL;
   }
@@ -2671,21 +2535,20 @@ struct hive *openHive(char *filename, int mode)
 
    hdr = (struct regf_header *)hdesc->buffer;
    if (hdr->id != 0x66676572) {
-     fprintf(stderr,"openHive(%s): File does not seem to be a registry hive!\n",filename);
+     LOG("openHive: not a registry file: %s\n",filename);
      return hdesc;
    }
 
    checksum = calc_regfsum(hdesc);
-
    if (checksum != hdr->checksum) {
-     fprintf(stderr,"openHive(%s): WARNING: REGF header checksum mismatch! calc: 0x%08x != file: 0x%08x\n",filename,checksum,hdr->checksum);
+     LOG("openHive: header checksum mismatch: calc %08x, hdr %08x\n", checksum, hdr->checksum);
    }
 
    hdesc->rootofs = hdr->ofs_rootkey + 0x1000;
 
    /* Cache the roots subkey index type (li,lf,lh) so we can use the correct
     * one when creating the first subkey in a key */
-   
+
    nk = (struct nk_key *)(hdesc->buffer + hdesc->rootofs + 4);
    if (nk->id == 0x6b6e) {
      rikey = (struct ri_key *)(hdesc->buffer + nk->ofs_lf + 0x1004);
@@ -2701,7 +2564,7 @@ struct hive *openHive(char *filename, int mode)
      }
 
    } else {
-     fprintf(stderr,"openHive: WARNING: ROOT key does not seem to be a key! (not type == nk)\n");
+     LOG("openHive: Root key is not a key (not of type 'nk')\n");
    }
 
    while (pofs < hdr->filesize + 0x1000) {   /* Loop through hbins until end according to regf header */
@@ -2712,7 +2575,7 @@ struct hive *openHive(char *filename, int mode)
      hdesc->pages++;
 
      if (p->ofs_next == 0) {
-       fprintf(stderr,"openHive: ERROR: Page at 0x%x has size zero! File may be corrupt, or program has a bug\n",pofs);
+       LOG("openHive: Corrupt file: zero-size page at %x\n", pofs);
        return hdesc;
      }
 
