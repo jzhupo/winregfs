@@ -85,7 +85,6 @@ static int escape_fwdslash(char *path)
 static int unescape_fwdslash(char *path)
 {
 	int pos = 0;
-	int changed = 0;
 	char *p, *q;
 	char temp[ABSPATHLEN];
 
