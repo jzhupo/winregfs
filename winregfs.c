@@ -711,6 +711,76 @@ static int winregfs_unlink(const char *path)
 }
 
 
+/* Make a key (directory); creation mode is ignored */
+static int winregfs_mkdir(const char *path, mode_t mode)
+{
+	struct nk_key *key;
+	int nkofs;
+	char node[ABSPATHLEN];
+	char keypath[ABSPATHLEN];
+
+	LOAD_WD();
+
+	DLOG("mkdir: %s\n", path);
+
+        sanitize_path(path, keypath, node);
+
+        nkofs = get_path_nkofs(wd, keypath, &key);
+        if (!nkofs) {
+                LOG("mkdir: no offset: %s\n", keypath);
+                errno = ENOENT;
+                return -1;
+        }
+
+	if(add_key(wd->hive, nkofs, node) == NULL) {
+                LOG("mkdir: cannot add key: %s\n", path);
+                errno = ENOENT;
+                return -1;
+	}
+	if(writeHive(wd->hive)) {
+		LOG("mkdir: error writing changes to hive\n");
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
+}
+
+
+/* Remove a key (directory) */
+static int winregfs_rmdir(const char *path)
+{
+	struct nk_key *key;
+	int nkofs;
+	char node[ABSPATHLEN];
+	char keypath[ABSPATHLEN];
+
+	LOAD_WD();
+
+	DLOG("rmdir: %s\n", path);
+
+        sanitize_path(path, keypath, node);
+
+        nkofs = get_path_nkofs(wd, keypath, &key);
+        if (!nkofs) {
+                LOG("rmdir: no offset: %s\n", keypath);
+                errno = ENOENT;
+                return -1;
+        }
+
+	if(del_key(wd->hive, nkofs, node)) {
+                LOG("rmdir: cannot delete key: %s\n", path);
+                errno = ENOENT;
+                return -1;
+	}
+	if(writeHive(wd->hive)) {
+		LOG("rmdir: error writing changes to hive\n");
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
+}
+
+
 /* Timestamps not supported, just return success */
 static int winregfs_utimens(const char *path, const struct timespec tv[2])
 {
@@ -723,6 +793,8 @@ static struct fuse_operations winregfs_oper = {
 	.getattr	= winregfs_getattr,
 	.mknod		= winregfs_mknod,
 	.readdir	= winregfs_readdir,
+	.mkdir		= winregfs_mkdir,
+	.rmdir		= winregfs_rmdir,
 	.open		= winregfs_open,
 	.read		= winregfs_read,
 	.access		= winregfs_access,
