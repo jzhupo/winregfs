@@ -265,6 +265,73 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 
 /*** FUSE functions ***/
 
+static int winregfs_access(const char *path, int mode)
+{
+	struct nk_key *key;
+	int nkofs;
+	struct ex_data ex;
+	struct vex_data vex;
+	int count = 0, countri = 0;
+	char filename[ABSPATHLEN];
+	char keypath[ABSPATHLEN];
+	char node[ABSPATHLEN];
+
+	LOAD_WD();
+
+	DLOG("access: %s (%d)\n", path, mode);
+
+	/* Read-only support for now */
+	if(mode & W_OK) {
+		LOG("access: write requested for read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
+
+	sanitize_path(path, keypath, node);
+	if (strcmp(path, "/") == 0) return 0;
+
+	nkofs = get_path_nkofs(wd, keypath, &key);
+	if (!nkofs) {
+		LOG("access: no offset: %s\n", keypath);
+		errno = ENOENT;
+		return -1;
+	}
+
+	if (key->no_subkeys) {
+		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
+				DLOG("access: ex_n: %p size %d c %d cri %d\n", path, ex.nk->no_subkeys, count, countri);
+				DLOG("access: directory OK: %s\n", node);
+				FREE(ex.name);
+				return 0;
+			} else FREE(ex.name);
+		}
+	}
+
+	count = 0;
+	if (key->no_values) {
+		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+			else add_val_ext(filename, &vex);
+			FREE(vex.name);
+			if (!strncasecmp(node, filename, ABSPATHLEN)) {
+				if(!(mode & X_OK)) {
+					DLOG("access: OK: ex_v: %p size %d c %d\n", path, vex.size, count);
+					return 0;
+				} else {
+					DLOG("access: exec not allowed: ex_v: %p size %d c %d\n", path, vex.size, count);
+					errno = EACCES;
+					return -1;
+				}
+			}
+		}
+	}
+	LOG("access: not found: %s\n", path);
+	errno = ENOENT;
+	return -1;
+}
+
+
 static int winregfs_getattr(const char *path, struct stat *stbuf)
 {
 	struct nk_key *key;
@@ -538,6 +605,7 @@ static struct fuse_operations winregfs_oper = {
 	.readdir	= winregfs_readdir,
 	.open		= winregfs_open,
 	.read		= winregfs_read,
+	.access		= winregfs_access,
 };
 
 
