@@ -482,8 +482,8 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	}
 
 	len = get_val_len(wd->hive, nkofs, node, TPF_VK_EXACT);
-	if (!len) {
-		LOG("read: Value %s has zero length\n", node);
+	if (len < 0) {
+		LOG("read: Value %s is not readable\n", node);
 		return -EINVAL;
 	}
 
@@ -499,6 +499,7 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	case REG_SZ:
 	case REG_EXPAND_SZ:
 	case REG_MULTI_SZ:
+		if(!len) break;
 		/* UTF-16 to ASCII, nulls to newlines */
 		string = string_regw2prog(data, len);
 		for (i = 0; i < (len >> 1) - 1; i++) {
