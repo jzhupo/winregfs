@@ -811,7 +811,7 @@ int main(int argc, char *argv[])
 
 	if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-')) {
 		fprintf(stderr, "Windows Registry Filesystem %s (%s)\n", VER, VERDATE);
-		fprintf(stderr, "\nUsage: %s hivename mountpoint\n\n", argv[0]);
+		fprintf(stderr, "\nUsage: %s [options] hivename mountpoint\n\n", argv[0]);
 		return 1;
 	}
 
