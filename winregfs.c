@@ -573,7 +573,7 @@ int main(int argc, char *argv[])
 #if ENABLE_NKOFS_CACHE
 	/* malloc() and initialize cache pointers/data */
 	wd->last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * CACHE_ITEMS);
-	if (!wd->last_path[i]) goto oom;
+	if (!wd->last_path[0]) goto oom;
 	for (i=0; i < CACHE_ITEMS; i++) {
 		wd->last_path[i] = (wd->last_path[0] + (ABSPATHLEN * i));
 		*wd->last_path[i] = '\0';
