@@ -323,7 +323,7 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
 
   p = (struct hbin_page *)(hdesc->buffer + pofs);
   while (vofs-pofs < (p->ofs_next - HBIN_ENDFILL)) {
-    seglen = get_int(hdesc->buffer+vofs);  
+    seglen = get_int(hdesc->buffer + vofs);  
     if (seglen == 0) {
       LOG("find_free_blk: Zero data block size; block at offset %0x\n",vofs);
       if ( (vofs - pofs) == (p->ofs_next - 4) ) {
@@ -342,7 +342,6 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
     }
     vofs += seglen;
   }
-  DLOG("find_free_blk: Failed to find a free block\n");
   return 0;
 }
 
@@ -374,7 +373,7 @@ int find_free(struct hive *hdesc, int size)
       LOG("find_free: zero len or ofs_next found in page at 0x%x\n", r);
       return 0;
     }
-    blk = find_free_blk(hdesc,r,size);
+    blk = find_free_blk(hdesc, r, size);
     if (blk) return blk;
     r += h->ofs_next;
   }
@@ -1104,7 +1103,7 @@ int get_val_type(struct hive *hdesc, int vofs, char *path, int exact)
 
   LOAD_WD();
 
-  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK);
+  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK_EXACT);
   if (!vkofs) {
 	LOG("get_val_type: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
@@ -1124,7 +1123,7 @@ int set_val_type(struct hive *hdesc, int vofs, char *path, int exact, int type)
 
   LOAD_WD();
 
-  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK);
+  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK_EXACT);
   if (!vkofs) {
 	LOG("set_val_type: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
@@ -1144,7 +1143,7 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 
   LOAD_WD();
 
-  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK);
+  vkofs = trav_path(hdesc, vofs,path,exact | TPF_VK_EXACT);
   if (!vkofs) {
 	LOG("get_val_len: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
@@ -1572,11 +1571,10 @@ int del_vk(struct hive *hdesc, int vkofs)
  * hdesc - yer usual hive
  * nkofs - current keyoffset
  * name  - name of value to delete
- * exact - NKF_EXACT to do exact match, else first match
  * returns: 0 - ok, 1 - failed
  */
 
-int del_value(struct hive *hdesc, int nkofs, char *name, int exact)
+int del_value(struct hive *hdesc, int nkofs, char *name)
 {
   int vlistofs, slot, o, n, vkofs, newlistofs;
   int32_t *vlistkey, *tmplist, *newlistkey;
@@ -1604,7 +1602,7 @@ int del_value(struct hive *hdesc, int nkofs, char *name, int exact)
   vlistofs = nk->ofs_vallist + 0x1004;
   vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
 
-  slot = vlist_find(hdesc, vlistofs, nk->no_values, name, TPF_VK);
+  slot = vlist_find(hdesc, vlistofs, nk->no_values, name, TPF_VK_EXACT);
 
   if (slot == -1) {
     LOG("del_value: not found: %s\n", name);
