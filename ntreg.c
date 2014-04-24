@@ -2431,7 +2431,7 @@ int writeHive(struct hive *hdesc)
     }
     hdesc->state |= HMODE_OPEN;
   }  
-  /* Seek back to begginning of file (in case it's already open) */
+  /* Seek back to beginning of file (in case it's already open) */
   lseek(hdesc->filedesc, 0, SEEK_SET);
 
   /* compute new checksum */
@@ -2441,7 +2441,7 @@ int writeHive(struct hive *hdesc)
 
   len = write(hdesc->filedesc, hdesc->buffer, hdesc->size);
   if (len != hdesc->size) {
-    LOG("writeHive: write failed: %s: %s\n",strerror(errno), hdesc->filename);
+    LOG("writeHive: write failed: %s: %s\n", strerror(errno), hdesc->filename);
     return 1;
   }
 
