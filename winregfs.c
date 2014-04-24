@@ -33,13 +33,32 @@
 #include "winregfs.h"
 
 /* Value type file extensions */
-const char *ext[REG_MAX+1] = {
+const char *ext[REG_MAX + 1] = {
 	"none", "sz", "esz", "bin", "dw", "dwbe", "lnk",
-	"msz", "reslist", "fullres", "res_req", "qw",
+	"msz", "reslist", "fullres", "res_req", "qw", NULL
 };
 
 const char slash[] = "_SLASH_";
 const int ss = sizeof(slash) - 1;
+
+/*** Non-FUSE helper functions ***/
+
+/* Remove extension and return numeric value for value type */
+static int process_ext(char *node)
+{
+	char *str_ext;
+	int i = 0;
+
+	str_ext = strrchr(node, '.');
+	/* Check for no-extension case */
+	if(str_ext == NULL) return -1;
+	*str_ext = '\0';
+	str_ext++;
+	for (; i < REG_MAX; i++) {
+		if(!strncasecmp(str_ext, ext[i], 8)) return i;
+	}
+	return -1;
+}
 
 
 /* Add the type extension to the registry value name */
@@ -60,6 +79,7 @@ static inline void slash_fix(char *path)
 		if (path[i] == '/') path[i] = '\\';
 	}
 }
+
 
 /* Forward slashes cannot appear in pathname components */
 static int escape_fwdslash(char *path)
@@ -92,6 +112,7 @@ static int escape_fwdslash(char *path)
 	return 0;
 }
 
+
 static int unescape_fwdslash(char *path)
 {
 	int pos = 0;
@@ -122,6 +143,7 @@ static int unescape_fwdslash(char *path)
 	return 0;
 }
 
+
 #if ENABLE_NKOFS_CACHE_STATS
 # if ENABLE_LOGGING
 static void log_cache_stats(struct winregfs_data *wd)
@@ -143,6 +165,7 @@ static void log_cache_stats(struct winregfs_data *wd)
 			((wd->hash_fail * 100) / ((h>0) ? h : 1)));
 }
 # endif
+
 
 static inline void cache_stats(struct winregfs_data *wd, char hit)
 {
@@ -169,6 +192,7 @@ static inline void cache_stats(struct winregfs_data *wd, char hit)
 }
 #endif /* NKOFS_CACHE_STATS */
 
+
 static inline hash_t cache_hash(const char *string)
 {
 	hash_t hash = 0x11;
@@ -190,6 +214,7 @@ static inline hash_t cache_hash(const char *string)
 	if (!hash) return ~hash;  /* Never return 0 */
 	else return hash;
 }
+
 
 static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key **key)
 {
@@ -249,6 +274,7 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 	return nkofs;
 }
 
+
 /* Converts a path to the required formats for keypath/nodepath usage */
 static inline int sanitize_path(const char *path, char *keypath, char *node)
 {
@@ -261,10 +287,12 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	unescape_fwdslash(keypath);
 	return 0;
 }
+/*** End helper functions ***/
 
 
 /*** FUSE functions ***/
 
+/* Check if access to a particular file is allowed */
 static int winregfs_access(const char *path, int mode)
 {
 	struct nk_key *key;
@@ -280,15 +308,15 @@ static int winregfs_access(const char *path, int mode)
 
 	DLOG("access: %s (%d)\n", path, mode);
 
-	/* Read-only support for now */
-	if(mode & W_OK) {
+	/* Read-only support (possible future feature) */
+/*	if(mode & W_OK) {
 		LOG("access: write requested for read-only filesystem\n");
 		errno = EROFS;
 		return -1;
-	}
+	} */
 
-	sanitize_path(path, keypath, node);
 	if (strcmp(path, "/") == 0) return 0;
+	sanitize_path(path, keypath, node);
 
 	nkofs = get_path_nkofs(wd, keypath, &key);
 	if (!nkofs) {
@@ -311,7 +339,7 @@ static int winregfs_access(const char *path, int mode)
 	count = 0;
 	if (key->no_values) {
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			FREE(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
@@ -347,16 +375,15 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	DLOG("getattr: %s\n", path);
 
-	sanitize_path(path, keypath, node);
-
-	memset(stbuf, 0, sizeof(struct stat));
-
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0555;
 		stbuf->st_nlink = 2;
 		stbuf->st_size = 1;
 		return 0;
 	}
+	sanitize_path(path, keypath, node);
+
+	memset(stbuf, 0, sizeof(struct stat));
 
 	nkofs = get_path_nkofs(wd, keypath, &key);
 	if (!nkofs) {
@@ -367,7 +394,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
-				stbuf->st_mode = S_IFDIR | 0555;
+				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
 				DLOG("getattr: ex_n: %p size %d c %d cri %d\n", path, ex.nk->no_subkeys, count, countri);
@@ -380,10 +407,10 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	count = 0;
 	if (key->no_values) {
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
-				stbuf->st_mode = S_IFREG | 0444;
+				stbuf->st_mode = S_IFREG | 0666;
 				stbuf->st_nlink = 1;
 				stbuf->st_size = vex.size;
 				DLOG("getattr: ex_v: %p size %d c %d\n", path, vex.size, count);
@@ -437,7 +464,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	count = 0;
 	if (key->no_values) {
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			FREE(vex.name);
 			escape_fwdslash(filename);
@@ -461,19 +488,17 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 
 	LOAD_WD();
 
-	/* FIXME: Force read-only access until write support added */
-	if ((fi->flags & 3) != O_RDONLY) {
+	/* Read-only support (possible future feature) */
+/*	if ((fi->flags & 3) != O_RDONLY) {
 		LOG("open: Read-only: %s\n", path);
 		return -EACCES;
-	}
-	/* XXX: End force read-only support */
-
-	sanitize_path(path, keypath, node);
+	} */
 
 	if (strcmp(path, "/") == 0) {
 		LOG("open: Is a directory: %s\n", path);
 		return -EISDIR;
 	}
+	sanitize_path(path, keypath, node);
 
 	nkofs = get_path_nkofs(wd, keypath, &key);
 	if (!nkofs) {
@@ -494,7 +519,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	count = 0;
 	if (key->no_values) {
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			FREE(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) return 0;
@@ -515,7 +540,7 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	size_t len;
 	int i, type, ktype = -1;
 	int used_string = 0;  /* 1 if string should be freed */
-	char *str_ext, *string = NULL;
+	char *string = NULL;
 	struct keyval *kv = NULL;
 
 	LOAD_WD();
@@ -523,14 +548,9 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	sanitize_path(path, keypath, node);
 
 	/* Extract type information, remove extension from name */
-	str_ext = strrchr(node, '.');
-	*str_ext = '\0';
-	str_ext++;
-	for (i = 0; i < REG_MAX; i++) {
-		if(!strncasecmp(str_ext, ext[i], 8)) ktype = i;
-	}
+	ktype = process_ext(node);
 	if (ktype < 0) {
-		LOG("read: invalid type extension %s\n", str_ext);
+		LOG("read: invalid type extension: %s\n", path);
 		return -EINVAL;
 	}
 
@@ -599,13 +619,115 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	return size;
 }
 
+
+/* Create a new empty file */
+static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
+{
+	struct nk_key *key;
+	int nkofs, ktype;
+	char keypath[ABSPATHLEN];
+	char node[ABSPATHLEN];
+
+	LOAD_WD();
+
+	DLOG("mknod: %s\n", path);
+
+	/* There are quite a few errors to watch out for */
+	/* FUSE already handles the "already exists" case */
+	if(!(mode & S_IFREG)) {
+		LOG("mknod: special files are not allowed\n");
+		errno = EPERM;
+		return -1;
+	}
+
+	if (strcmp(path, "/") == 0) {
+		LOG("mknod: no path specified\n");
+		errno = EEXIST;
+		return -1;
+	}
+
+	sanitize_path(path, keypath, node);
+
+	ktype = process_ext(node);
+	if(ktype < 0) {
+		LOG("mknod: bad extension: %s\n", path);
+		errno = EPERM;
+		return -1;
+	}
+
+	nkofs = get_path_nkofs(wd, keypath, &key);
+	if (!nkofs) {
+		LOG("mknod: no offset: %s\n", keypath);
+		errno = ENOSPC;
+		return -1;
+	}
+
+	if(!add_value(wd->hive, nkofs, node, ktype)) {
+		LOG("mknod: error creating value: %s\n", path);
+		errno = ENOSPC;
+		return -1;
+	}
+	if(writeHive(wd->hive)) {
+		LOG("mknod: error writing changes to hive\n");
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
+}
+
+
+static int winregfs_unlink(const char *path)
+{
+	struct nk_key *key;
+	int nkofs;
+	char node[ABSPATHLEN];
+	char keypath[ABSPATHLEN];
+
+	LOAD_WD();
+
+	DLOG("unlink: %s\n", path);
+
+        sanitize_path(path, keypath, node);
+	process_ext(node);
+
+        nkofs = get_path_nkofs(wd, keypath, &key);
+        if (!nkofs) {
+                LOG("unlink: no offset: %s\n", keypath);
+                errno = ENOENT;
+                return -1;
+        }
+
+	if(del_value(wd->hive, nkofs, node)) {
+                LOG("unlink: cannot delete: %s\n", path);
+                errno = ENOENT;
+                return -1;
+	}
+	if(writeHive(wd->hive)) {
+		LOG("unlink: error writing changes to hive\n");
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
+}
+
+
+/* Timestamps not supported, just return success */
+static int winregfs_utimens(const char *path, const struct timespec tv[2])
+{
+	return 0;
+}
+
+
 /* Required for FUSE to use these functions */
 static struct fuse_operations winregfs_oper = {
 	.getattr	= winregfs_getattr,
+	.mknod		= winregfs_mknod,
 	.readdir	= winregfs_readdir,
 	.open		= winregfs_open,
 	.read		= winregfs_read,
 	.access		= winregfs_access,
+	.unlink		= winregfs_unlink,
+	.utimens	= winregfs_utimens,
 };
 
 
@@ -670,7 +792,7 @@ int main(int argc, char *argv[])
 	wd->delay = 1;
 # endif
 #endif /* NKOFS_CACHE */
-	wd->hive = openHive(file, HMODE_RO);
+	wd->hive = openHive(file, HMODE_RW);
 	if (!wd->hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return 1;
