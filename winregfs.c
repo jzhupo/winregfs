@@ -12,9 +12,7 @@
  *
  * TODO:
  *
- * * Change REG_DWORD etc. to hex text instead of raw binary data
- *
- * * Add write support
+ * * Finish write support
  *
  */
 
@@ -42,6 +40,26 @@ const char slash[] = "_SLASH_";
 const int ss = sizeof(slash) - 1;
 
 /*** Non-FUSE helper functions ***/
+
+/* Convert value to hex string, return string length */
+int bytes2hex(char *string, const void *data, const int bytes)
+{
+	int i, j = 0;
+	unsigned char c;
+
+	for(i = bytes - 1; i >= 0; i--) {
+		c = *((char *)data + i);
+		string[j] = (c >> 4) + '0';
+		if(string[j] > '9') string[j] += 40;
+		j++;
+		string[j] = (c & 15) + '0';
+		if(string[j] > '9') string[j] += 40;
+		j++;
+	}
+	string[j] = '\n'; j++;
+	string[j] = '\0';
+	return (bytes<<1) + 2;
+}
 
 /* Remove extension and return numeric value for value type */
 static int process_ext(char *node)
@@ -412,7 +430,16 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				stbuf->st_mode = S_IFREG | 0666;
 				stbuf->st_nlink = 1;
-				stbuf->st_size = vex.size;
+				switch(vex.type) {
+				case REG_QWORD:
+					stbuf->st_size = 17;
+					break;
+				case REG_DWORD:
+					stbuf->st_size = 9;
+					break;
+				default:
+					stbuf->st_size = vex.size;
+				}
 				DLOG("getattr: ex_v: %p size %d c %d\n", path, vex.size, count);
 				return 0;
 			} else FREE(vex.name);
@@ -538,9 +565,10 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	struct nk_key *key;
 	void *data;
 	size_t len;
-	int i, type, ktype = -1;
+	int i, type;
 	int used_string = 0;  /* 1 if string should be freed */
 	char *string = NULL;
+	char dqw[18];  /* DWORD/QWORD ASCII hex string */
 	struct keyval *kv = NULL;
 
 	LOAD_WD();
@@ -548,8 +576,7 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	sanitize_path(path, keypath, node);
 
 	/* Extract type information, remove extension from name */
-	ktype = process_ext(node);
-	if (ktype < 0) {
+	if (process_ext(node) < 0) {
 		LOG("read: invalid type extension: %s\n", path);
 		return -EINVAL;
 	}
@@ -597,9 +624,13 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 		string[len - 1] = '\n';
 		used_string = 1;
 		break;
+	case REG_QWORD:
+		len = bytes2hex(dqw, data, 8);
+		string = dqw;
+		break;
 	case REG_DWORD:
-		len = 4;
-		string = data;
+		len = bytes2hex(dqw, data, 4);
+		string = dqw;
 		break;
 	case REG_BINARY:
 		string = data;
