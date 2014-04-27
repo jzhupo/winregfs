@@ -39,10 +39,49 @@ const char *ext[REG_MAX + 1] = {
 const char slash[] = "_SLASH_";
 const int ss = sizeof(slash) - 1;
 
+
 /*** Non-FUSE helper functions ***/
 
+/* Return offset to the first non-hexadecimal char in string */
+static int find_nonhex(const char *string, int len)
+{
+	unsigned char q;
+	int offset;
+
+	if(*string == 0) return -1;
+	for(offset = 0; offset < len; offset++) {
+		if(*(string + offset) == 0) return offset;
+		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
+		if(q > 48) q -= 39;
+		if(q < 0 || q > 15) return offset;
+	}
+	return -1;
+}
+
+
+/* Convert hex string to integer */
+static int convert_hex(const char *string, uint64_t *dest, int len)
+{
+	unsigned char q;
+	int offset;
+
+	*dest = 0;
+
+	if(*string == 0) return -1;
+	for(offset = 0; offset < len; offset++) {
+		if(*(string + offset) == 0) return 0;
+		*dest <<= 4;  /* Shift for each character processed */
+		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
+		if(q > 48) q -= 39;
+		if(q < 0 || q > 15) return -1;
+		*dest += q;
+	}
+	return 0;
+}
+
+
 /* Convert value to hex string, return string length */
-int bytes2hex(char *string, const void *data, const int bytes)
+static int bytes2hex(char *string, const void *data, const int bytes)
 {
 	int i, j = 0;
 	unsigned char c;
@@ -131,6 +170,7 @@ static int escape_fwdslash(char *path)
 }
 
 
+/* Reverse escape_fwdslash */
 static int unescape_fwdslash(char *path)
 {
 	int pos = 0;
@@ -244,10 +284,12 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 
 	/* Check the cached path to avoid extra traversals */
 	hash = cache_hash(keypath);
+
 	LOCK();
-	i = wd->cache_pos;
+
 	/* Work backwards in the hash cache ring until we come back
 	 * where we started or encounter a zeroed (non-existent) hash */
+	i = wd->cache_pos;
 	while (1) {
 		if (!wd->hash[i]) break;  /* 0 = end of recorded hashes */
 		if (wd->hash[i] == hash) {
@@ -265,12 +307,14 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 		i--;
 		if (i == wd->cache_pos) break;
 	}
+
 	UNLOCK();
+
 	/* DLOG("get_path_nkofs: cache miss: %s %s\n", keypath, wd->last_path[i]); */
 	cache_stats(wd, CACHE_MISS);
 #endif  /* NKOFS_CACHE */
 
-	/* Cached path didn't match, traverse and get offset */
+	/* Cached path didn't match (or cache disabled), traverse and get offset */
 	nkofs = trav_path(wd->hive, 0, keypath, TPF_NK_EXACT);
 	if(!nkofs) {
 		LOG("get_path_nkofs: trav_path failed: %s\n", keypath);
@@ -281,12 +325,15 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 	*key = (struct nk_key *)(wd->hive->buffer + nkofs);
 
 #if ENABLE_NKOFS_CACHE
+	/* Increment cache ring position, place new cache item */
 	LOCK();
+
 	if(++wd->cache_pos >= CACHE_ITEMS) wd->cache_pos = 0;
 	strncpy(wd->last_path[wd->cache_pos], keypath, ABSPATHLEN);
 	wd->last_nkofs[wd->cache_pos] = nkofs;
 	wd->last_key[wd->cache_pos] = *key;
 	wd->hash[wd->cache_pos] = cache_hash(keypath);
+
 	UNLOCK();
 #endif
 	return nkofs;
@@ -346,7 +393,8 @@ static int winregfs_access(const char *path, int mode)
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
-				DLOG("access: ex_n: %p size %d c %d cri %d\n", path, ex.nk->no_subkeys, count, countri);
+				DLOG("access: ex_n: %p size %d c %d cri %d\n",
+						path, ex.nk->no_subkeys, count, countri);
 				DLOG("access: directory OK: %s\n", node);
 				FREE(ex.name);
 				return 0;
@@ -362,10 +410,12 @@ static int winregfs_access(const char *path, int mode)
 			FREE(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				if(!(mode & X_OK)) {
-					DLOG("access: OK: ex_v: %p size %d c %d\n", path, vex.size, count);
+					DLOG("access: OK: ex_v: %p size %d c %d\n",
+							path, vex.size, count);
 					return 0;
 				} else {
-					DLOG("access: exec not allowed: ex_v: %p size %d c %d\n", path, vex.size, count);
+					DLOG("access: exec not allowed: ex_v: %p size %d c %d\n",
+							path, vex.size, count);
 					errno = EACCES;
 					return -1;
 				}
@@ -415,7 +465,8 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
-				DLOG("getattr: ex_n: %p size %d c %d cri %d\n", path, ex.nk->no_subkeys, count, countri);
+				DLOG("getattr: ex_n: %p size %d c %d cri %d\n",
+						path, ex.nk->no_subkeys, count, countri);
 				FREE(ex.name);
 				return 0;
 			} else FREE(ex.name);
@@ -440,7 +491,8 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 				default:
 					stbuf->st_size = vex.size;
 				}
-				DLOG("getattr: ex_v: %p size %d c %d\n", path, vex.size, count);
+				DLOG("getattr: ex_v: %p size %d c %d\n",
+						path, vex.size, count);
 				return 0;
 			} else FREE(vex.name);
 		}
@@ -556,7 +608,8 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	return -ENOENT;
 }
 
-static int winregfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
+static int winregfs_read(const char *path, char *buf, size_t size,
+		off_t offset, struct fuse_file_info *fi)
 {
 	int nkofs;
 	char node[ABSPATHLEN];
@@ -648,6 +701,132 @@ static int winregfs_read(const char *path, char *buf, size_t size, off_t offset,
 	if (used_string) FREE(string);
 	FREE(kv);
 	return size;
+}
+
+
+static int winregfs_write(const char *path, const char *buf,
+		size_t size, off_t offset, struct fuse_file_info *fi)
+{
+	int nkofs;
+	char node[ABSPATHLEN];
+	char keypath[ABSPATHLEN];
+
+	struct nk_key *key;
+	void *data;
+	size_t len;
+	int i, type;
+	int used_string = 0;  /* 1 if string should be freed */
+	char *newbuf = NULL;
+	uint64_t val;  /* DWORD/QWORD hex string value */
+	struct keyval *kv = NULL;
+	struct keyval *newkv = NULL;
+
+	LOAD_WD();
+
+	sanitize_path(path, keypath, node);
+
+	/* Extract type information, remove extension from name */
+	type = process_ext(node);
+	if (type < 0) {
+		LOG("read: invalid type extension: %s\n", path);
+		return -EINVAL;
+	}
+
+	if (*node == '@') *node = '\0';
+
+	nkofs = get_path_nkofs(wd, keypath, &key);
+	if (!nkofs) {
+		LOG("read: get_path_nkofs failed: %s\n", keypath);
+		return -ENOENT;
+	}
+
+	kv = get_val2buf(wd->hive, NULL, nkofs, node, type, TPF_VK_EXACT);
+	if(!kv) {
+		LOG("write: metadata missing for %s\n", path);
+		return -ENOENT;
+	}
+
+	/******  TODO: Handle OFFSET!!! ******/
+
+	switch(type) {
+	case REG_DWORD:
+		i = find_nonhex(buf, 9);
+		if(i < 1) {
+			LOG("write: bad DWORD file format: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+		i = convert_hex(buf, &val, i);
+		if(i == -1) {
+			LOG("write: bad DWORD file format: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+
+		kv->len = 4;
+		kv->data = (uint32_t)val;
+		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
+
+		if(i) {
+			LOG("write: error writing file: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+		break;
+
+	case REG_QWORD:
+		i = find_nonhex(buf, 17);
+		if(i < 1) {
+			LOG("write: bad QWORD file format: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+		i = convert_hex(buf, &val, i);
+		if(i == -1) {
+			LOG("write: bad QWORD file format: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+
+		kv->len = 8;
+		kv->data = val;
+		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
+
+		if(i) {
+			LOG("write: error writing file: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+		break;
+
+	case REG_BINARY:
+	case REG_SZ:
+	case REG_EXPAND_SZ:
+	case REG_MULTI_SZ:
+		newbuf = (char *)malloc(sizeof(char) * size);
+		if(!newbuf) {
+			LOG("write: failed to allocate memory for buffer\n");
+			return -ENOMEM;
+		}
+		ALLOC(newkv, 1, (size << 1) + sizeof(int));
+		newkv->len = size << 1;
+		memcpy(newbuf, buf, size);
+		cheap_ascii2uni(newbuf, (char *)&(newkv->data), size);
+		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
+		if(i) {
+			LOG("write: error writing file: %s\n", path);
+			FREE(kv);
+			return -EINVAL;
+		}
+		break;
+	default:
+		LOG("write: type %d not supported: %s\n", type, path);
+		return -EINVAL;
+		break;
+	}
+
+	FREE(kv)
+	return 0;
 }
 
 
@@ -815,22 +994,81 @@ static int winregfs_rmdir(const char *path)
 /* Timestamps not supported, just return success */
 static int winregfs_utimens(const char *path, const struct timespec tv[2])
 {
+	LOAD_WD();
+	LOG("Called but not implemented: utimens\n");
 	return 0;
 }
+
+
+/* Truncate is stupid anyway */
+static int winregfs_truncate(const char *path, off_t len)
+{
+	LOAD_WD();
+	LOG("Called but not implemented: truncate (len %d)\n", len);
+	return 0;
+}
+
+/*
+static int winregfs_readlink(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: readlink\n"); return -1; }
+static int winregfs_symlink(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: symlink\n"); return -1; }
+static int winregfs_rename(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: rename\n"); return -1; }
+static int winregfs_link(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: link\n"); return -1; }
+static int winregfs_chmod(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: chmod\n"); return -1; }
+static int winregfs_chown(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: chown\n"); return -1; }
+static int winregfs_statfs(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: statfs\n"); return -1; }
+static int winregfs_flush(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: flush\n"); return -1; }
+static int winregfs_release(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: release\n"); return -1; }
+static int winregfs_fsync(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: fsync\n"); return -1; }
+static int winregfs_releasedir(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: releasedir\n"); return -1; }
+static int winregfs_fsyncdir(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: fsyncdir\n"); return -1; }
+static int winregfs_ftruncate(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: ftruncate\n"); return -1; }
+static int winregfs_fgetattr(void)
+{ LOAD_WD(); LOG("ERROR: Not implemented: fgetattr\n"); return -1; }
+*/
 
 
 /* Required for FUSE to use these functions */
 static struct fuse_operations winregfs_oper = {
 	.getattr	= winregfs_getattr,
+/*	.readlink	= winregfs_readlink, */
 	.mknod		= winregfs_mknod,
 	.readdir	= winregfs_readdir,
 	.mkdir		= winregfs_mkdir,
+	.unlink		= winregfs_unlink,
 	.rmdir		= winregfs_rmdir,
+/*	.symlink	= winregfs_symlink,
+	.rename		= winregfs_rename,
+	.link		= winregfs_link,
+	.chmod		= winregfs_chmod,
+	.chown		= winregfs_chown, */
+	.truncate	= winregfs_truncate,
 	.open		= winregfs_open,
 	.read		= winregfs_read,
+	.write		= winregfs_write,
 	.access		= winregfs_access,
-	.unlink		= winregfs_unlink,
 	.utimens	= winregfs_utimens,
+/*	.statfs		= winregfs_statfs,
+	.flush		= winregfs_flush,
+	.release	= winregfs_release,
+	.fsync		= winregfs_fsync,
+	.releasedir	= winregfs_releasedir,
+	.fsyncdir	= winregfs_fsyncdir,
+	.ftruncate	= winregfs_ftruncate,
+	.fgetattr	= winregfs_fgetattr,
+	.lock		= winregfs_lock, */
 };
 
 
@@ -900,6 +1138,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return 1;
 	}
+	LOG("winregfs started\n");
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
 	LOG("winregfs terminated OK\n");

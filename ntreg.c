@@ -2205,7 +2205,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
 
   if (kv->len > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
     db = (struct db_key *)keydataptr;
-    if (db->id != 0x6264) abort();
+    if (db->id != 0x6264) return 0;
     parts = db->no_part;
     list = db->ofs_data + 0x1004;
     LOG("put_buf2val: Long value: parts %d, list %x\n", parts, list);
@@ -2218,13 +2218,9 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
 
       /* Copy this part, up to size of block or rest lenght in last block */
       copylen = (blocksize > restlen) ? restlen : blocksize;
-
-      DLOG("put_buf2val: Datablock %d offset %x, size %x (%d)\n", i, blockofs, blocksize, blocksize);
-      DLOG("             : Point = %x, restlen = %x, copylen = %x\n", point, restlen, copylen);
-
       addr = (void *)(&(kv->data) + point);
       if(fill_block( hdesc, blockofs, addr, copylen)) {
-	      LOG("get_class: fill_block failed\n");
+	      LOG("put_buf2val: fill_block failed\n");
 	      return 0;
       }
 
@@ -2246,9 +2242,9 @@ int put_dword(struct hive *hdesc, int vofs, char *path, int exact, int dword)
   struct keyval *kr;
   int r;
 
-  ALLOC(kr,1,sizeof(int)+sizeof(int));
+  ALLOC(kr,1,16);
 
-  kr->len = sizeof(int);
+  kr->len = 4;
   kr->data = dword;
 
   r = put_buf2val(hdesc, kr, vofs, path, REG_DWORD, exact);

@@ -292,7 +292,7 @@ struct vex_data {
 
 struct keyval {
   int len;      /* Length of databuffer */
-  int data;    /* Data. Goes on for length of value */
+  int64_t data;    /* Data. Goes on for length of value */
 };
 
 struct keyvala {
