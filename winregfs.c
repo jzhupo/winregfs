@@ -88,16 +88,16 @@ static int bytes2hex(char *string, const void *data, const int bytes)
 
 	for(i = bytes - 1; i >= 0; i--) {
 		c = *((char *)data + i);
-		string[j] = (c >> 4) + '0';
-		if(string[j] > '9') string[j] += 40;
+		string[j] = (c >> 4) + 48;
+		if(string[j] > 57) string[j] += 39;
 		j++;
-		string[j] = (c & 15) + '0';
-		if(string[j] > '9') string[j] += 40;
+		string[j] = (c & 15) + 48;
+		if(string[j] > 57) string[j] += 39;
 		j++;
 	}
 	string[j] = '\n'; j++;
 	string[j] = '\0';
-	return (bytes<<1) + 2;
+	return (bytes << 1) + 2;
 }
 
 /* Remove extension and return numeric value for value type */
@@ -274,7 +274,12 @@ static inline hash_t cache_hash(const char *string)
 }
 
 
-static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key **key)
+/* Caching offset fetcher. If update_cache is nonzero, the
+ * function call will refresh the cache entry for the path
+ * and stop (useful for things that modify directories)
+ */
+static int get_path_nkofs(struct winregfs_data *wd, char *keypath,
+		struct nk_key **key, int update_cache)
 {
 	int nkofs;
 
@@ -295,14 +300,27 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 		if (wd->hash[i] == hash) {
 			cache_stats(wd, HASH_HIT);
 			if (!strncasecmp(wd->last_path[i], keypath, ABSPATHLEN)) {
-				nkofs = wd->last_nkofs[i];
-				*key = wd->last_key[i];
-				/* DLOG("get_path_nkofs: cache hit: %s %s\n", keypath, wd->last_path[i]); */
-				cache_stats(wd, CACHE_HIT);
-				UNLOCK();
-				return nkofs;
+				if(!update_cache) {
+					nkofs = wd->last_nkofs[i];
+					*key = wd->last_key[i];
+					cache_stats(wd, CACHE_HIT);
+					UNLOCK();
+					return nkofs;
+				} else {
+					nkofs = trav_path(wd->hive, 0, keypath, TPF_NK_EXACT);
+					if(!nkofs) {
+						LOG("get_path_nkofs: trav_path failed: %s\n", keypath);
+						return 0;
+					}
+					nkofs += 4;
+					wd->last_key[i] = (struct nk_key *)(wd->hive->buffer + nkofs);
+					wd->last_nkofs[i] = nkofs;
+					UNLOCK();
+					return nkofs;
+				}
 			} else cache_stats(wd, HASH_FAIL);
 		} else cache_stats(wd, HASH_MISS);
+		if(update_cache) return 0;
 		if (!i) i = CACHE_ITEMS;
 		i--;
 		if (i == wd->cache_pos) break;
@@ -310,7 +328,6 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath, struct nk_key
 
 	UNLOCK();
 
-	/* DLOG("get_path_nkofs: cache miss: %s %s\n", keypath, wd->last_path[i]); */
 	cache_stats(wd, CACHE_MISS);
 #endif  /* NKOFS_CACHE */
 
@@ -383,7 +400,7 @@ static int winregfs_access(const char *path, int mode)
 	if (strcmp(path, "/") == 0) return 0;
 	sanitize_path(path, keypath, node);
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("access: no offset: %s\n", keypath);
 		errno = ENOENT;
@@ -396,9 +413,9 @@ static int winregfs_access(const char *path, int mode)
 				DLOG("access: ex_n: %p size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
 				DLOG("access: directory OK: %s\n", node);
-				FREE(ex.name);
+				free(ex.name);
 				return 0;
-			} else FREE(ex.name);
+			} else free(ex.name);
 		}
 	}
 
@@ -407,7 +424,7 @@ static int winregfs_access(const char *path, int mode)
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			FREE(vex.name);
+			free(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				if(!(mode & X_OK)) {
 					DLOG("access: OK: ex_v: %p size %d c %d\n",
@@ -438,6 +455,9 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	char filename[ABSPATHLEN];
 	char keypath[ABSPATHLEN];
 	char node[ABSPATHLEN];
+	char check1[ABSPATHLEN];
+	char check2[ABSPATHLEN];
+	char *token;
 
 	LOAD_WD();
 
@@ -453,11 +473,13 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	memset(stbuf, 0, sizeof(struct stat));
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("getattr: no offset: %s\n", keypath);
 		return -ENOENT;
 	}
+
+	DLOG("getattr: retrieved key: %p\n", (void *)key);
 
 	if (key->no_subkeys) {
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
@@ -467,9 +489,9 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 				stbuf->st_size = ex.nk->no_subkeys;
 				DLOG("getattr: ex_n: %p size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
-				FREE(ex.name);
+				free(ex.name);
 				return 0;
-			} else FREE(ex.name);
+			} else free(ex.name);
 		}
 	}
 
@@ -478,7 +500,24 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
+
+			/* Wildcard accesses with no extension */
+			if (!strrchr(node, '.')) {
+				strncpy(check1, node, ABSPATHLEN);
+				strncpy(check2, filename, ABSPATHLEN);
+				token = strrchr(check2, '.');
+				*token = '\0';
+				if (!strncasecmp(check1, check2, ABSPATHLEN)) {
+					LOG("getattr: wildcard found for %s\n", path);
+					goto getattr_wildcard;
+				} else {
+					free(vex.name);
+					continue;
+				}
+			}
+
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
+getattr_wildcard:
 				stbuf->st_mode = S_IFREG | 0666;
 				stbuf->st_nlink = 1;
 				switch(vex.type) {
@@ -494,9 +533,27 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 				DLOG("getattr: ex_v: %p size %d c %d\n",
 						path, vex.size, count);
 				return 0;
-			} else FREE(vex.name);
+			}
+
+			/* Prevent creation of conflicting files */
+			strncpy(check1, node, ABSPATHLEN);
+			token = strrchr(check1, '.');
+			if(!token) DLOG("TOKEN 1 BAD  %s  %s\n", node, check1);
+			*token = '\0';
+			strncpy(check2, filename, ABSPATHLEN);
+			if(!token) DLOG("TOKEN 2 BAD\n");
+			token = strrchr(check2, '.');
+			*token = '\0';
+			if(!strncasecmp(check1, check2, ABSPATHLEN)) {
+				stbuf->st_mode = S_IFREG | 0000;
+				stbuf->st_nlink = 1;
+				stbuf->st_size = 0;
+				DLOG("getattr: blocking file %s\n", path);
+				return 0;
+			}
+			free(vex.name);
 		}
-	}
+	} else DLOG("getattr: no values for key: %p\n", (void *)key);
 	LOG("getattr: not found: %s\n", path);
 	return -ENOENT;
 }
@@ -515,13 +572,13 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	LOAD_WD();
 
-	DLOG("readdir: %s\n", path);
+	DLOG("readdir: %s  (+%d)\n", path, (int)offset);
 
 	strncpy(keypath, path, ABSPATHLEN);
 	slash_fix(keypath);
 	unescape_fwdslash(keypath);
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("readdir: get_path_nkofs failed: %s\n", keypath);
 		return -ENOENT;
@@ -534,7 +591,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
 			DLOG("readdir: n_filler: %s\n", ex.name);
 			strncpy(filename, ex.name, ABSPATHLEN);
-			FREE(ex.name);
+			free(ex.name);
 			escape_fwdslash(filename);
 			filler(buf, filename, NULL, 0);
 		}
@@ -545,7 +602,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			FREE(vex.name);
+			free(vex.name);
 			escape_fwdslash(filename);
 			DLOG("readdir: v_filler: %s\n", filename);
 			filler(buf, filename, NULL, 0);
@@ -564,8 +621,13 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	char filename[ABSPATHLEN];
 	char keypath[ABSPATHLEN];
 	char node[ABSPATHLEN];
+	char check1[ABSPATHLEN];
+	char check2[ABSPATHLEN];
+	char *token;
 
 	LOAD_WD();
+
+	DLOG("open: %s\n", path);
 
 	/* Read-only support (possible future feature) */
 /*	if ((fi->flags & 3) != O_RDONLY) {
@@ -579,7 +641,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	}
 	sanitize_path(path, keypath, node);
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("open: get_path_nkofs failed: %s\n", keypath);
 		return -ENOENT;
@@ -589,9 +651,9 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
 				LOG("open: Is a directory: %s\n", node);
-				FREE(ex.name);
+				free(ex.name);
 				return -EISDIR;
-			} else FREE(ex.name);
+			} else free(ex.name);
 		}
 	}
 
@@ -600,7 +662,19 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			FREE(vex.name);
+			free(vex.name);
+
+			/* Wildcard accesses with no extension */
+			if (!strrchr(node, '.')) {
+				strncpy(check1, node, ABSPATHLEN);
+				strncpy(check2, filename, ABSPATHLEN);
+				token = strrchr(check2, '.');
+				*token = '\0';
+				if (!strncasecmp(check1, check2, ABSPATHLEN)) {
+					LOG("open: wildcard found for %s\n", path);
+					return 0;
+				} else continue;
+			}
 			if (!strncasecmp(node, filename, ABSPATHLEN)) return 0;
 		}
 	}
@@ -612,35 +686,48 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 		off_t offset, struct fuse_file_info *fi)
 {
 	int nkofs;
+	char filename[ABSPATHLEN];
 	char node[ABSPATHLEN];
 	char keypath[ABSPATHLEN];
 
 	struct nk_key *key;
 	void *data;
 	size_t len;
-	int i, type;
+	int i, type, count;
 	int used_string = 0;  /* 1 if string should be freed */
 	char *string = NULL;
 	char dqw[18];  /* DWORD/QWORD ASCII hex string */
 	struct keyval *kv = NULL;
+	struct vex_data vex;
 
 	LOAD_WD();
 
+	DLOG("read: %s (%d + %d)\n", path, (int)size, (int)offset);
+
 	sanitize_path(path, keypath, node);
 
-	/* Extract type information, remove extension from name */
-	if (process_ext(node) < 0) {
-		LOG("read: invalid type extension: %s\n", path);
-		return -EINVAL;
-	}
-
-	if (*node == '@') *node = '\0';
-
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("read: get_path_nkofs failed: %s\n", keypath);
 		return -ENOENT;
 	}
+
+	/* Extract type information, remove extension from name */
+	if (process_ext(node) < 0) {
+		count = 0;
+		if (key->no_values) {
+			while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+				if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
+				else strncpy(filename, vex.name, ABSPATHLEN);
+				free(vex.name);
+				if (!strncasecmp(node, filename, ABSPATHLEN)) goto read_wildcard;
+			}
+		}
+		LOG("read: invalid type extension: %s\n", path);
+		return -EINVAL;
+	}
+read_wildcard:
+	if (*node == '@') *node = '\0';
 
 	type = get_val_type(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (type == -1) {
@@ -655,12 +742,11 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 	}
 
 	kv = get_val2buf(wd->hive, NULL, nkofs, node, 0, TPF_VK_EXACT);
-
 	if (!kv) {
 		LOG("read: Value %s could not fetch data\n", node);
 		return -EINVAL;
 	}
-	data = (void *)&(kv->data);
+	data = (void *)(kv->data);
 
 	switch (type) {
 	case REG_SZ:
@@ -690,6 +776,7 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 		break;
 	default:
 		LOG("read: Cannot handle type %d\n", type);
+		free(kv->data); free(kv);
 		return -EINVAL;
 	}
 
@@ -698,8 +785,8 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 		memcpy(buf, string + offset, size);
 	} else size = 0;
 
-	if (used_string) FREE(string);
-	FREE(kv);
+	if (used_string) free(string);
+	free(kv->data); free(kv);
 	return size;
 }
 
@@ -712,16 +799,17 @@ static int winregfs_write(const char *path, const char *buf,
 	char keypath[ABSPATHLEN];
 
 	struct nk_key *key;
-	void *data;
-	size_t len;
 	int i, type;
-	int used_string = 0;  /* 1 if string should be freed */
+	size_t newsize;
 	char *newbuf = NULL;
+	char *string = NULL;
 	uint64_t val;  /* DWORD/QWORD hex string value */
 	struct keyval *kv = NULL;
 	struct keyval *newkv = NULL;
 
 	LOAD_WD();
+
+	DLOG("write: %s (%d + %d)\n", path, (int)size, (int)offset);
 
 	sanitize_path(path, keypath, node);
 
@@ -734,7 +822,7 @@ static int winregfs_write(const char *path, const char *buf,
 
 	if (*node == '@') *node = '\0';
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("read: get_path_nkofs failed: %s\n", keypath);
 		return -ENOENT;
@@ -747,29 +835,33 @@ static int winregfs_write(const char *path, const char *buf,
 	}
 
 	/******  TODO: Handle OFFSET!!! ******/
+	/* Handle offset */
+	newsize = offset + size;
+	if(kv->len > newsize) newsize = kv->len;
 
 	switch(type) {
 	case REG_DWORD:
 		i = find_nonhex(buf, 9);
-		if(i < 1) {
+		if (i < 1) {
 			LOG("write: bad DWORD file format: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 		i = convert_hex(buf, &val, i);
-		if(i == -1) {
+		LOG("3\n");
+		if (i == -1) {
 			LOG("write: bad DWORD file format: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 
 		kv->len = 4;
-		kv->data = (uint32_t)val;
+		*((uint32_t *)kv->data) = (uint32_t)val;
 		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
 
-		if(i) {
+		if(!i) {
 			LOG("write: error writing file: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 		break;
@@ -778,55 +870,119 @@ static int winregfs_write(const char *path, const char *buf,
 		i = find_nonhex(buf, 17);
 		if(i < 1) {
 			LOG("write: bad QWORD file format: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 		i = convert_hex(buf, &val, i);
 		if(i == -1) {
 			LOG("write: bad QWORD file format: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 
 		kv->len = 8;
-		kv->data = val;
+		*((uint64_t *)kv->data) = val;
 		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
 
 		if(i) {
 			LOG("write: error writing file: %s\n", path);
-			FREE(kv);
+			free(kv->data); free(kv);
 			return -EINVAL;
 		}
 		break;
 
 	case REG_BINARY:
+		newkv = (struct keyval *)malloc(sizeof(struct keyval));
+		if(!newkv) {
+			LOG("write: failed to allocate memory\n");
+			free(kv->data); free(kv);
+			return -ENOMEM;
+		}
+
+		ALLOC(newkv->data, 1, newsize);
+		if(!newkv->data) {
+			LOG("write: failed to allocate memory for buffer\n");
+			free(newkv); free(kv->data); free(kv);
+			return -ENOMEM;
+		}
+
+		memcpy(newkv->data, kv->data, kv->len);
+		memcpy(((char *)newkv->data + offset), buf, size);
+		newkv->len = newsize;
+		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
+		free(newkv->data); free(newkv); free(kv->data); free(kv);
+
+		if(!i) {
+			LOG("write: error writing file: %s\n", path);
+			return -EINVAL;
+		}
+		break;
 	case REG_SZ:
 	case REG_EXPAND_SZ:
 	case REG_MULTI_SZ:
-		newbuf = (char *)malloc(sizeof(char) * size);
+		newbuf = (char *)malloc(sizeof(char) * newsize);
+
 		if(!newbuf) {
 			LOG("write: failed to allocate memory for buffer\n");
+			free(newbuf); free(kv->data); free(kv);
 			return -ENOMEM;
 		}
-		ALLOC(newkv, 1, (size << 1) + sizeof(int));
-		newkv->len = size << 1;
-		memcpy(newbuf, buf, size);
-		cheap_ascii2uni(newbuf, (char *)&(newkv->data), size);
-		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
-		if(i) {
+
+		if(offset != 0) {
+			string = string_regw2prog(kv->data, kv->len);
+			if(string == NULL) {
+				LOG("write: out of memory\n");
+				free(newbuf); free(kv->data); free(kv);
+				return -ENOMEM;
+			}
+			memcpy(newbuf, string, kv->len >> 1);
+			free(string);
+		}
+		newkv = (struct keyval *)malloc(sizeof(struct keyval));
+		/* Extra byte for MULTI_SZ null termination */
+		ALLOC(newkv->data, 1, (newsize + 1) << 1);
+
+		memcpy((newbuf + offset), buf, size);
+		newkv->len = newsize << 1;
+		/* Truncate string at first non-ASCII char */
+		if(type != REG_MULTI_SZ) {
+			for(i = 0; i < newsize; i++) {
+				if(newbuf[i] < 32) {
+					newkv->len = i << 1;
+					break;
+				}
+			}
+		} else {
+			/* MULTI_SZ is icky. Newlines become nulls! */
+			for(i = 0; i < newsize; i++) {
+				if(newbuf[i] < 32) newbuf[i] = '\0';
+			}
+		}
+
+		cheap_ascii2uni(newbuf, (char *)newkv->data, newsize);
+		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
+		free(newbuf); free(newkv->data); free(newkv); free(kv->data); free(kv);
+
+		if(!i) {
 			LOG("write: error writing file: %s\n", path);
-			FREE(kv);
 			return -EINVAL;
 		}
 		break;
 	default:
 		LOG("write: type %d not supported: %s\n", type, path);
+		free(newbuf); free(kv->data); free(kv);
 		return -EINVAL;
 		break;
 	}
 
-	FREE(kv)
-	return 0;
+	if(writeHive(wd->hive)) {
+		LOG("write: error writing changes to hive\n");
+		errno = EPERM;
+		free(newbuf); free(kv->data); free(kv);
+		return -1;
+	}
+
+	return size;
 }
 
 
@@ -865,7 +1021,7 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 		return -1;
 	}
 
-	nkofs = get_path_nkofs(wd, keypath, &key);
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("mknod: no offset: %s\n", keypath);
 		errno = ENOSPC;
@@ -882,6 +1038,9 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 		errno = EPERM;
 		return -1;
 	}
+#if ENABLE_NKOFS_CACHE
+	get_path_nkofs(wd, keypath, &key, 1);
+#endif
 	return 0;
 }
 
@@ -900,7 +1059,7 @@ static int winregfs_unlink(const char *path)
         sanitize_path(path, keypath, node);
 	process_ext(node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key);
+        nkofs = get_path_nkofs(wd, keypath, &key, 0);
         if (!nkofs) {
                 LOG("unlink: no offset: %s\n", keypath);
                 errno = ENOENT;
@@ -917,6 +1076,9 @@ static int winregfs_unlink(const char *path)
 		errno = EPERM;
 		return -1;
 	}
+#if ENABLE_NKOFS_CACHE
+	get_path_nkofs(wd, keypath, &key, 1);
+#endif
 	return 0;
 }
 
@@ -935,7 +1097,7 @@ static int winregfs_mkdir(const char *path, mode_t mode)
 
         sanitize_path(path, keypath, node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key);
+        nkofs = get_path_nkofs(wd, keypath, &key, 0);
         if (!nkofs) {
                 LOG("mkdir: no offset: %s\n", keypath);
                 errno = ENOENT;
@@ -952,6 +1114,9 @@ static int winregfs_mkdir(const char *path, mode_t mode)
 		errno = EPERM;
 		return -1;
 	}
+#if ENABLE_NKOFS_CACHE
+	get_path_nkofs(wd, keypath, &key, 1);
+#endif
 	return 0;
 }
 
@@ -970,7 +1135,7 @@ static int winregfs_rmdir(const char *path)
 
         sanitize_path(path, keypath, node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key);
+        nkofs = get_path_nkofs(wd, keypath, &key, 0);
         if (!nkofs) {
                 LOG("rmdir: no offset: %s\n", keypath);
                 errno = ENOENT;
@@ -987,6 +1152,9 @@ static int winregfs_rmdir(const char *path)
 		errno = EPERM;
 		return -1;
 	}
+#if ENABLE_NKOFS_CACHE
+	get_path_nkofs(wd, keypath, &key, 1);
+#endif
 	return 0;
 }
 
@@ -1004,7 +1172,7 @@ static int winregfs_utimens(const char *path, const struct timespec tv[2])
 static int winregfs_truncate(const char *path, off_t len)
 {
 	LOAD_WD();
-	LOG("Called but not implemented: truncate (len %d)\n", len);
+	LOG("Called but not implemented: truncate (len %d)\n", (int)len);
 	return 0;
 }
 

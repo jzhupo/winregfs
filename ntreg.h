@@ -292,12 +292,7 @@ struct vex_data {
 
 struct keyval {
   int len;      /* Length of databuffer */
-  int64_t data;    /* Data. Goes on for length of value */
-};
-
-struct keyvala {
-  int len;      /* Length of databuffer */
-  int data[1];    /* Data. Goes on for length of value */
+  void *data;    /* Modified for winregfs: use pointers, not inline data */
 };
 
 /* Types to trav_path() */
@@ -356,32 +351,24 @@ struct hive {
 #define CREATE(result, type, number)\
     { \
         if (!((result) = (type *) calloc ((number), sizeof(type)))) { \
-            perror("malloc failure"); \
-            abort() ; \
+            LOG("malloc failure"); \
+            abort(); \
        } \
     }
 #define ALLOC(result, size, number)\
     { \
         if (!((result) = (void *) calloc ((number), (size)))) { \
-            perror("malloc failure"); \
-            abort() ; \
+            LOG("malloc failure"); \
+            abort(); \
        } \
     }
-#define FREE(p) { if (p) { free(p); (p) = 0; } }
 
 /******* Function prototypes **********/
 
 char *str_dup( const char *str );
-char *str_cat(char *str, char *add);
-char *str_catf(char *str, const char *format, ... );
-int find_in_buf(char *buf, char *what, int sz, int len, int start);
 int get_int( char *array );
 void cheap_uni2ascii(char *src, char *dest, int l);
 void cheap_ascii2uni(char *src, char *dest, int l);
-int gethex(char **c);
-int gethexorstr(char **c, char *wb);
-struct keyval *reg_valcat(struct keyval *a, struct keyval *b);
-
 
 int parse_block(struct hive *hdesc, int vofs);
 int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex_data *sptr);
@@ -403,29 +390,18 @@ void closeHive(struct hive *hdesc);
 int writeHive(struct hive *hdesc);
 struct hive *openHive(char *filename, int mode);
 
-void nk_ls(struct hive *hdesc, char *path, int vofs, int type);
-
 struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type);
 int del_allvalues(struct hive *hdesc, int nkofs);
 int del_value(struct hive *hdesc, int nkofs, char *name);
 struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name);
 int del_key(struct hive *hdesc, int nkofs, char *name);
-int rdel_keys(struct hive *hdesc, char *path, int nkofs);
-struct keyval *get_class(struct hive *hdesc, int curnk, char *path);
 
 int add_bin(struct hive *hdesc, int size);
-
-void import_reg(struct hive *hdesc, char *filename, char *prefix);
 
 int de_escape(char *s, int wide);
 
 char *string_regw2prog(void *string, int len);
 
-
-/* From edlib.c */
-void regedit_interactive(struct hive *hive[], int no_hives);
-void cat_dpi(struct hive *hdesc, int nkofs, char *path);
-
-
 #endif
+
 
