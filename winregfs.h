@@ -74,17 +74,17 @@ typedef uint_fast32_t hash_t;
 #if ENABLE_LOGGING
 #define LOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
-		  } else fprintf(stderr, __VA_ARGS__);
+		  } else printf(__VA_ARGS__);
 #else
-#define LOG(...) fprintf(stderr, __VA_ARGS__);
+#define LOG(...) printf(__VA_ARGS__);
 #endif
 /* Use DLOG for places where logging may be high-volume */
 #if ENABLE_DEBUG_LOGGING
 #define DLOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
-		  } else fprintf(stderr, __VA_ARGS__);
+		  } else printf(__VA_ARGS__);
 #else
-#define DLOG(...) fprintf(stderr, __VA_ARGS__);
+#define DLOG(...) printf(__VA_ARGS__);
 #endif
 
 
@@ -125,5 +125,7 @@ struct winregfs_data {
 # endif
 #endif
 };
+
+void invalidate_cache(void);
 
 #endif /* _WINREGFS_H */
