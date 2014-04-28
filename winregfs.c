@@ -969,7 +969,7 @@ static int winregfs_write(const char *path, const char *buf,
 		/* Copy old message into buffer if offset is specified */
 		if (offset != 0) {
 			string = string_regw2prog(kv->data, kv->len);
-			if (string == NULL) {
+			if (!string) {
 				LOG("write: out of memory\n");
 				free(newbuf); free(kv->data); free(kv);
 				return -ENOMEM;
@@ -1000,7 +1000,7 @@ static int winregfs_write(const char *path, const char *buf,
 		if (type != REG_MULTI_SZ) {
 			for(i = 0; i < newsize; i++) {
 				if (newbuf[i] == '\n' || newbuf[i] == '\r') {
-					newkv->len = i << 1;
+					newkv->len = (i + 1) << 1;
 					break;
 				}
 			}
