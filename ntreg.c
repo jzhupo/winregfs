@@ -41,10 +41,10 @@
 #include "winregfs.h"
 #include "ntreg.h"
 
-#undef LOG
+/*#undef LOG
 #define LOG(...) printf(__VA_ARGS__)
 #undef DLOG
-#define DLOG(...) printf(__VA_ARGS__)
+#define DLOG(...) printf(__VA_ARGS__) */
 
 #define ZEROFILL      1  /* Fill blocks with zeroes when allocating and deallocating */
 
@@ -346,6 +346,9 @@ int add_bin(struct hive *hdesc, int size)
       abort();
     }
     hdesc->size = newsize;
+
+LOG("Cache invalidated\n");
+    invalidate_cache();  /* winregfs cache must be wiped if buffer is reallocated */
   }
 
   /* At this point, we have large enough space at end of file */
@@ -412,6 +415,7 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
   /* Then check whole hive */
   if (!blk) {
     blk = find_free(hdesc,size);
+LOG("alloc_block find_free: %x %d\n", blk, size);
   }
 
   if (blk) {  /* Got the space */
@@ -459,6 +463,7 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
 #endif
 
     hdesc->state |= HMODE_DIRTY;
+LOG("alloc_block: found: %x\n", blk);
     return blk;
   } else {
     LOG("alloc_block: failed to alloc %d bytes, trying to expand hive.\n",size);
@@ -1189,10 +1194,11 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
 
 int fill_block(struct hive *hdesc, int ofs, void *data, int size)
 {
-  int blksize;
+  uint32_t blksize;
 
   blksize = get_int(hdesc->buffer + ofs);
   blksize = -blksize;
+LOG("fill_block CHK 2: size %d, blksize %d, ofs %x\n", size, blksize, ofs);
 
   /*  if (blksize < size || ( (ofs & 0xfffff000) != ((ofs+size) & 0xfffff000) )) { */
   if (blksize < size) {
@@ -1200,6 +1206,7 @@ int fill_block(struct hive *hdesc, int ofs, void *data, int size)
     return -1;
   }
 
+LOG("fill_block CHK 3: %x, ofs %x, %x, data %x, %d\n", hdesc->buffer, ofs, hdesc->buffer + ofs + 4, data, size);
   memcpy(hdesc->buffer + ofs + 4, data, size);
   return 0;
 }
@@ -1292,10 +1299,12 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
       DLOG("alloc_val_data: large key: size %x (%d), parts %d\n", size, size, parts);
 
       dbofs = alloc_block(hdesc, vkofs, sizeof(struct db_key));    /* Alloc db structure */
+LOG("alloc CHK 2: db alloc: %x, %d\n", dbofs, sizeof(struct db_key));
       db = (struct db_key *)(hdesc->buffer + dbofs + 4);
       db->id = 0x6264;
       db->no_part = parts;
       listofs = alloc_block(hdesc, vkofs, 4 * parts);  /* block offset list */
+LOG("alloc CHK 4: alloc %x, %d\n", listofs, (4 * parts));
       db = (struct db_key *)(hdesc->buffer + dbofs + 4);
       db->ofs_data = listofs - 0x1000;
       LOG("alloc_val_data: dbofs %x, listofs %x\n", dbofs, listofs);
@@ -2000,7 +2009,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
  * If same size as existing, copy back in place to avoid changing too much
  * otherwise allocate new dataspace, then free the old
  * Thus enough space to hold both new and old data is needed
- * Pass inn buffer with data len as first DWORD (as routines above)
+ * Pass in buffer with data len as first DWORD (as routines above)
  * returns: 0 - error, len - OK (len of data)
  */
 
@@ -2010,7 +2019,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   int l;
   void *keydataptr, *addr;
   struct db_key *db;
-  int copylen, blockofs, blocksize, restlen, point, i, list, parts;
+  int32_t copylen, blockofs, blocksize, restlen, point, i, list, parts;
 
   if (!kv) {
 	  LOG("put_buf2val: NULL key value pointer given\n");
@@ -2023,6 +2032,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   }
 
   if (kv->len != l) {  /* Realloc data block if not same size as existing */
+LOG("CHK 00: kv->len %d, l %d\n", kv->len, l);
     if (!alloc_val_data(hdesc, vofs, path, kv->len, exact)) {
       LOG("put_buf2val: alloc_val_data failed: %s\n", path);
       return 0;
@@ -2040,7 +2050,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
     if (db->id != 0x6264) return 0;
     parts = db->no_part;
     list = db->ofs_data + 0x1004;
-    LOG("put_buf2val: Long value: parts %d, list %x\n", parts, list);
+    LOG("put_buf2val: long value: parts %d, list %x\n", parts, list);
 
     point = 0;
     restlen = kv->len;
@@ -2048,9 +2058,11 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
       blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
       blocksize = -get_int(hdesc->buffer + blockofs) - 8;
 
-      /* Copy this part, up to size of block or rest lenght in last block */
+      /* Copy this part, up to size of block or rest length in last block */
       copylen = (blocksize > restlen) ? restlen : blocksize;
-      addr = (void *)((int *)kv->data + point);
+LOG("put_buf2val CHK 02: copylen %d, restlen %d, blocksize %d\n", copylen, restlen, blocksize);
+      addr = (void *)((char *)kv->data + point);
+LOG("put_buf2val CHK 03: addr %x, len %d, point %d, blockofs %d\n", addr, kv->len, point, blockofs);
       if(fill_block( hdesc, blockofs, addr, copylen)) {
 	      LOG("put_buf2val: fill_block failed\n");
 	      return 0;
