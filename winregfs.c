@@ -30,6 +30,7 @@
 #include "ntreg.h"
 #include "winregfs.h"
 
+
 /* Value type file extensions */
 const char *ext[REG_MAX + 1] = {
 	"none", "sz", "esz", "bin", "dw", "dwbe", "lnk",
@@ -273,6 +274,19 @@ static inline hash_t cache_hash(const char *string)
 	else return hash;
 }
 
+
+/* Clear all cache elements (used when hive buffer is invalidated */
+void invalidate_cache(void)
+{
+	int i;
+	LOAD_WD();
+
+	DLOG("winregfs cache invalidated\n");
+	LOCK();
+	for(i=0; i < CACHE_ITEMS; i++) wd->hash[i] = '\0';
+	UNLOCK();
+	return;
+}
 
 /* Caching offset fetcher. If update_cache is nonzero, the
  * function call will refresh the cache entry for the path
@@ -530,7 +544,6 @@ getattr_wildcard:
 				case REG_SZ:
 				case REG_EXPAND_SZ:
 				case REG_MULTI_SZ:
-DLOG("getattr: string value: %d -> %d\n", vex.size, vex.size >> 1);
 					stbuf->st_size = vex.size >> 1;
 					break;
 				default:
@@ -839,7 +852,6 @@ static int winregfs_write(const char *path, const char *buf,
 	}
 
 	newsize = offset + size;
-DLOG("  newsize %d, offset %d, size %d\n", newsize, offset, size);
 
 	switch(type) {
 	case REG_DWORD:
@@ -946,43 +958,44 @@ DLOG("  newsize %d, offset %d, size %d\n", newsize, offset, size);
 			free(kv->data); free(kv);
 			return -EINVAL;
 		}
-DLOG("  string: newsize: %d\n", (int)newsize);
-		newbuf = (char *)malloc(sizeof(char) * newsize);
+		newbuf = (char *)malloc(sizeof(char) * (newsize + 1));
 
 		if (!newbuf) {
 			LOG("write: failed to allocate memory for buffer\n");
-			free(newbuf); free(kv->data); free(kv);
+			free(kv->data); free(kv);
 			return -ENOMEM;
 		}
 
 		/* Copy old message into buffer if offset is specified */
-		if ( offset != 0) {
+		if (offset != 0) {
 			string = string_regw2prog(kv->data, kv->len);
 			if (string == NULL) {
 				LOG("write: out of memory\n");
 				free(newbuf); free(kv->data); free(kv);
 				return -ENOMEM;
 			}
-DLOG("+++ String data +++\n%s\n", string);
 
 			for (i = 0; i < (kv->len >> 1); i++) {
 				if (string[i] == 0) string[i] = '\n';
 				if (type == REG_SZ) break;
 			}
-DLOG("--- String data [len %d] ---\n%s\n", i, string);
 			memcpy(newbuf, string, kv->len >> 1);
-DLOG("memcpy: length: %d\n", (int)(kv->len >> 1));
 			free(string);
 		}
 
 		newkv = (struct keyval *)malloc(sizeof(struct keyval));
+		if (!newkv) {
+			LOG("write: out of memory\n");
+			free(newbuf); free(kv->data); free(kv);
+			return -ENOMEM;
+		}
+
 		/* Extra byte for MULTI_SZ null termination */
 		ALLOC(newkv->data, 1, (newsize + 1) << 1);
-DLOG("  alloc = %d\n", (int)(newsize + 1) << 1);
 
 		memcpy((newbuf + offset), buf, size);
+		*(newbuf + offset + size) = 0;
 		newkv->len = newsize << 1;
-DLOG("  newkv->len = %d\n", (int)newkv->len);
 		/* Truncate string at first newline */
 		if (type != REG_MULTI_SZ) {
 			for(i = 0; i < newsize; i++) {
@@ -998,13 +1011,18 @@ DLOG("  newkv->len = %d\n", (int)newkv->len);
 					newbuf[i] = '\0';
 			}
 		}
-DLOG("  i = %d\n", i);
-
 		cheap_ascii2uni(newbuf, (char *)newkv->data, newsize);
-DLOG("  cheap_ascii2uni OK, putting len: %d\n", (int)newkv->len);
+		free(newbuf);
 		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
-DLOG("  returned len: %d\n", i);
-		free(newbuf); free(newkv->data); free(newkv); free(kv->data); free(kv);
+		if(i != newkv->len) {
+			LOG("write: short write: %s (%d/%d)\n", path, i, (int)newkv->len);
+			free(newkv->data); free(newkv); free(kv->data); free(kv);
+			return -ENOSPC;
+		}
+		free(newkv->data);
+		free(newkv);
+		free(kv->data);
+		free(kv);
 
 		if (!i) {
 			LOG("write: error writing file: %s\n", path);
@@ -1013,7 +1031,7 @@ DLOG("  returned len: %d\n", i);
 		break;
 	default:
 		LOG("write: type %d not supported: %s\n", type, path);
-		free(newbuf); free(kv->data); free(kv);
+		free(kv->data); free(kv);
 		return -EINVAL;
 		break;
 	}
@@ -1021,7 +1039,6 @@ DLOG("  returned len: %d\n", i);
 	if (writeHive(wd->hive)) {
 		LOG("write: error writing changes to hive\n");
 		errno = EPERM;
-		free(newbuf); free(kv->data); free(kv);
 		return -1;
 	}
 
