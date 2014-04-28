@@ -41,10 +41,10 @@
 #include "winregfs.h"
 #include "ntreg.h"
 
-/*#undef LOG
+#undef LOG
 #define LOG(...) printf(__VA_ARGS__)
 #undef DLOG
-#define DLOG(...) printf(__VA_ARGS__) */
+#define DLOG(...) printf(__VA_ARGS__)
 
 #define ZEROFILL      1  /* Fill blocks with zeroes when allocating and deallocating */
 
