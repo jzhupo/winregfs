@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-O2 -pipe -flto
-#CFLAGS=-O0 -Wall -g3 -pedantic
+#CFLAGS=-O2 -pipe -flto
+CFLAGS=-O0 -Wall -g3 -pedantic
 BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe
-LDFLAGS=-flto -s -Wl,--gc-sections
+LDFLAGS=-flto -s
 #LDFLAGS=
 FUSE_CFLAGS=$(shell pkg-config fuse --cflags)
 FUSE_LDFLAGS=$(shell pkg-config fuse --libs)
@@ -25,7 +25,7 @@ mount.winregfs: winregfs.o ntreg.o
 	$(CC) -c $(BUILD_CFLAGS) $(FUSE_CFLAGS) $(CFLAGS) $<
 
 clean:
-	rm -f *.o test *~ mount.winregfs debug.log
+	rm -f *.o *~ mount.winregfs debug.log
 
 install: all
 #	install -D -o root -g root -m 0644 mount.winregfs.1.gz $(DESTDIR)/$(mandir)/man8/mount.winregfs.8.gz
