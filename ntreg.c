@@ -604,6 +604,14 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
 
   lfkey = (struct lf_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
   rikey = (struct ri_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
+  if (hdesc->size < ((int)lfkey - (int)hdesc->buffer)) {
+    LOG("ex_next_n: error: 'lf' key pointer beyond end of file");
+    return -1;
+  }
+  if (hdesc->size < ((int)rikey - (int)hdesc->buffer)) {
+    LOG("ex_next_n: error: 'ri' key pointer beyond end of file");
+    return -1;
+  }
 
   if (rikey->id == 0x6972) {   /* Is it extended 'ri'-block? */
     if (*countri < 0 || *countri >= rikey->no_lis) { /* End of ri's? */
@@ -611,11 +619,19 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
     }
     /* Get the li of lf-struct that's current based on countri */
     likey = (struct li_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
+    if (hdesc->size < ((int)likey - (int)hdesc->buffer)) {
+      LOG("ex_next_n: error: 'li' key pointer beyond end of file");
+      return -1;
+    }
     if (likey->id == 0x696c) {
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
     } else {
       lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
       newnkofs = lfkey->hash[*count].ofs_nk + 0x1000;
+      if (hdesc->size < ((int)newnkofs - (int)hdesc->buffer)) {
+        LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
+        return 0;
+      }
     }
 
     /* Check if current li/lf is exhausted */
@@ -635,6 +651,10 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
     }
   }
 
+  if (hdesc->size < newnkofs) {
+    LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
+    return 0;
+  }
   sptr->nkoffs = newnkofs;
   newnkkey = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
   sptr->nk = newnkkey;
@@ -688,6 +708,10 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 
   vlistofs = key->ofs_vallist + 0x1004;
   vlistkey = (int *)(hdesc->buffer + vlistofs);
+  if (hdesc->size < vlistofs) {
+	  LOG("ex_next_v: value list offset too large\n");
+	  return -1;
+  }
 
   vkofs = vlistkey[*count] + 0x1004;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
