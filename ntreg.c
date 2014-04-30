@@ -157,7 +157,7 @@ char *mem_str(const char *str, int len)
 }
 
 /* Get INTEGER from memory. This is probably low-endian specific? */
-int get_int(char *array)
+int get_int32(char *array)
 {
 	return ((array[0]&0xff) + ((array[1]<<8)&0xff00) +
 		   ((array[2]<<16)&0xff0000) +
@@ -196,7 +196,7 @@ int parse_block(struct hive *hdesc, int vofs)
 /*  unsigned short id; */
   int seglen;
 
-  seglen = get_int(hdesc->buffer+vofs);
+  seglen = get_int32(hdesc->buffer + vofs);
 
   if (seglen == 0) {
     LOG("parse_block: Zero data block size (not registry or corrupt file?)\n");
@@ -225,7 +225,7 @@ int parse_block(struct hive *hdesc, int vofs)
 
 int find_page_start(struct hive *hdesc, int vofs)
 {
-  int r,prev;
+  int r, prev;
   struct hbin_page *h;
 
   /* Again, assume start at 0x1000 */
@@ -258,8 +258,8 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
   struct hbin_page *p;
 
   p = (struct hbin_page *)(hdesc->buffer + pofs);
-  while (vofs-pofs < (p->ofs_next - HBIN_ENDFILL)) {
-    seglen = get_int(hdesc->buffer + vofs);  
+  while ((vofs - pofs) < (p->ofs_next - HBIN_ENDFILL)) {
+    seglen = get_int32(hdesc->buffer + vofs);
     if (seglen == 0) {
       LOG("find_free_blk: Zero data block size; block at offset %0x\n",vofs);
       if ( (vofs - pofs) == (p->ofs_next - 4) ) {
@@ -289,7 +289,7 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
 
 int find_free(struct hive *hdesc, int size)
 {
-  int r,blk;
+  int r, blk;
   struct hbin_page *h;
 
   /* Align to 8 byte boundary */
@@ -408,17 +408,17 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
 
   /* Check current page first */
   if (ofs) {
-    pofs = find_page_start(hdesc,ofs);
-    blk = find_free_blk(hdesc,pofs,size);
+    pofs = find_page_start(hdesc, ofs);
+    blk = find_free_blk(hdesc, pofs, size);
   }
 
   /* Then check whole hive */
   if (!blk) {
-    blk = find_free(hdesc,size);
+    blk = find_free(hdesc, size);
   }
 
   if (blk) {  /* Got the space */
-    oldsz = get_int(hdesc->buffer+blk);
+    oldsz = get_int32(hdesc->buffer+blk);
     trailsize = oldsz - size;
 
     if (trailsize == 4) {
@@ -491,7 +491,7 @@ int free_block(struct hive *hdesc, int blk)
     return 0;
   }
 
-  size = get_int(hdesc->buffer+blk);
+  size = get_int32(hdesc->buffer+blk);
   if (size >= 0) {
     LOG("free_block: trying to free already free block: %x\n",blk);
     return 0;
@@ -510,9 +510,9 @@ int free_block(struct hive *hdesc, int blk)
   prevsz = -32;
 
   if (vofs != blk) {  /* Block is not at start of page? */
-    while (vofs-pofs < (p->ofs_next - HBIN_ENDFILL) ) {
+    while ((vofs - pofs) < (p->ofs_next - HBIN_ENDFILL) ) {
 
-      seglen = get_int(hdesc->buffer+vofs);
+      seglen = get_int32(hdesc->buffer+vofs);
       if (seglen == 0) {
 	LOG("free_block: Zero data block size (not registry or corrupt file?)\n");
 	return 0;
@@ -529,14 +529,14 @@ int free_block(struct hive *hdesc, int blk)
       LOG("free_block: Ran off end of page. Error in chains? vofs %x, pofs %x, blk %x\n",vofs,pofs,blk);
       return 0;
     }
-    prevsz = get_int(hdesc->buffer+prev);
+    prevsz = get_int32(hdesc->buffer+prev);
   }
 
   /* We also need details on next block (unless at end of page) */
   next = blk + size;
 
   nextsz = 0;
-  if (next-pofs < (p->ofs_next - HBIN_ENDFILL) ) nextsz = get_int(hdesc->buffer+next);
+  if ((next - pofs) < (p->ofs_next - HBIN_ENDFILL) ) nextsz = get_int32(hdesc->buffer+next);
 
   /* Now check if next block is free, if so merge it with the one to be freed */
   if ( nextsz > 0) {
@@ -688,8 +688,8 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
 int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 {
   struct nk_key *key /* , *newnkkey */ ;
-  int vkofs,vlistofs;
-  int *vlistkey;
+  int vkofs, vlistofs;
+  intptr_t *vlistkey;
   struct vk_key *vkkey;
 
   if (!nkofs) {
@@ -707,7 +707,7 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
   }
 
   vlistofs = key->ofs_vallist + 0x1004;
-  vlistkey = (int *)(hdesc->buffer + vlistofs);
+  vlistkey = (intptr_t *)(hdesc->buffer + vlistofs);
   if (hdesc->size < vlistofs) {
 	  LOG("ex_next_v: value list offset too large\n");
 	  return -1;
@@ -1191,8 +1191,8 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
     point = 0;
     restlen = l;
     for (i = 0; i < parts; i++) {
-      blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
-      blocksize = -get_int(hdesc->buffer + blockofs) - 8;
+      blockofs = get_int32(hdesc->buffer + list + (i << 2)) + 0x1000;
+      blocksize = -get_int32(hdesc->buffer + blockofs) - 8;
 
       /* Copy this part, up to size of block or rest lenght in last block */
       copylen = (blocksize > restlen) ? restlen : blocksize;
@@ -1222,7 +1222,7 @@ int fill_block(struct hive *hdesc, int ofs, void *data, int size)
 {
   uint32_t blksize;
 
-  blksize = get_int(hdesc->buffer + ofs);
+  blksize = get_int32(hdesc->buffer + ofs);
   blksize = -blksize;
 
   /*  if (blksize < size || ( (ofs & 0xfffff000) != ((ofs+size) & 0xfffff000) )) { */
@@ -1265,8 +1265,8 @@ int free_val_data(struct hive *hdesc, int vkofs)
       DLOG("free_val_data: Long value: parts %d, list %x\n", parts, list);
 
       for (i = 0; i < parts; i++) {
-	blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
-	blocksize = -get_int(hdesc->buffer + blockofs);
+	blockofs = get_int32(hdesc->buffer + list + (i << 2)) + 0x1000;
+	blocksize = -get_int32(hdesc->buffer + blockofs);
 	LOG("free_val_data: Freeing long block %d: offset %x, size %x (%d)\n",i, blockofs, blocksize, blocksize);
 	free_block(hdesc, blockofs);		
       }
@@ -2076,8 +2076,8 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
     point = 0;
     restlen = kv->len;
     for (i = 0; i < parts; i++) {
-      blockofs = get_int(hdesc->buffer + list + (i << 2)) + 0x1000;
-      blocksize = -get_int(hdesc->buffer + blockofs) - 8;
+      blockofs = get_int32(hdesc->buffer + list + (i << 2)) + 0x1000;
+      blocksize = -get_int32(hdesc->buffer + blockofs) - 8;
 
       /* Copy this part, up to size of block or rest length in last block */
       copylen = (blocksize > restlen) ? restlen : blocksize;
