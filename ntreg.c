@@ -114,7 +114,7 @@ int strn_casecmp(const char *s1, const char *s2, size_t n)
 {
   char r;
 
-  while ( *s1 && *s2 && n ) {
+  while (*s1 && *s2 && n) {
     r = (unsigned char)reg_touppertable[(unsigned char)*s1] - (unsigned char)reg_touppertable[(unsigned char)*s2];
     if (r) return r;
     n--;
@@ -127,7 +127,7 @@ int strn_casecmp(const char *s1, const char *s2, size_t n)
 }
 
 
-char *str_dup( const char *str )
+char *str_dup(const char *str)
 {
     char *str_new;
 
@@ -143,7 +143,7 @@ char *str_dup( const char *str )
  * Uses length only, does not check for nulls
  */
 
-char *mem_str( const char *str, int len )
+char *mem_str(const char *str, int len)
 {
     char *str_new;
 
@@ -767,9 +767,9 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
     return strlen(path);   /* Stop trace when string exhausted */
   }
   *path = '\\';
-  memcpy(path+1,keyname,len_name);
+  memcpy(path + 1, keyname, len_name);
   free(keyname);
-  strncpy(path+len_name+1,tmp,maxlen-6-len_name);
+  strncpy(path + len_name + 1, tmp, maxlen - 6 - len_name);
   return get_abs_path(hdesc, key->ofs_parent+0x1004, path, maxlen); /* go back one more */
 }
 
@@ -1147,8 +1147,8 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   if (kv) {
     kr = kv;
   } else {
-    ALLOC(kr,1,2*sizeof(struct keyval));
-    ALLOC(kr->data,1,l*sizeof(int));
+    ALLOC(kr, 1, 2 * sizeof(struct keyval));
+    ALLOC(kr->data, 1, l * sizeof(int32_t));
   }
 
   kr->len = l;
@@ -1173,7 +1173,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
       DLOG("             : Point = %x, restlen = %x, copylen = %x\n",point,restlen,copylen);
 
       addr = (void *)((int *)kr->data + point);
-      memcpy( addr, hdesc->buffer + blockofs + 4, copylen);
+      memcpy(addr, hdesc->buffer + blockofs + 4, copylen);
 
       point += copylen;
       restlen -= copylen;
@@ -2053,7 +2053,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
 
       /* Copy this part, up to size of block or rest length in last block */
       copylen = (blocksize > restlen) ? restlen : blocksize;
-      addr = (void *)((char *)kv->data + point);
+      addr = (char *)(kv->data) + point;
       if(fill_block(hdesc, blockofs, addr, copylen)) {
 	      LOG("put_buf2val: fill_block failed\n");
 	      return 0;
@@ -2243,11 +2243,11 @@ int writeHive(struct hive *hdesc)
   struct regf_header *hdr;
 
   if (hdesc->state & HMODE_RO) {
-	  LOG("writeHive: Attempt to write in read-only mode\n");
+	  LOG("writeHive: Hive is read-only, cannot write\n");
 	  return 0;
   }
   if ( !(hdesc->state & HMODE_DIRTY)) {
-	  LOG("writeHive: Attempt to write in read-only mode\n");
+	  LOG("writeHive: Hive is not dirty. Not writing.\n");
 	  return 0;
   }
 

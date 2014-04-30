@@ -75,16 +75,24 @@ typedef uint_fast32_t hash_t;
 #define LOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
 		  } else printf(__VA_ARGS__);
+#define LOAD_WD_LOGONLY() struct winregfs_data *wd; \
+		  wd = fuse_get_context()->private_data;
 #else
+#define LOAD_WD_LOGONLY()
 #define LOG(...) printf(__VA_ARGS__);
 #endif
+
 /* Use DLOG for places where logging may be high-volume */
 #if ENABLE_DEBUG_LOGGING
 #define DLOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
 		  } else printf(__VA_ARGS__);
 #else
-#define DLOG(...) printf(__VA_ARGS__);
+# if ENABLE_LOGGING
+# define DLOG(...) printf(__VA_ARGS__);
+# else
+# define DLOG(...)
+# endif
 #endif
 
 

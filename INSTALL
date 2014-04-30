@@ -1,0 +1,7 @@
+Just type "make" and then "make install".
+
+DESTDIR may be specified to install elsewhere: make DESTDIR=/pkg install
+
+If your compiler doesn't support LTO, remove "-flto" from Makefile and try
+compiling again. ntreg still contains code that winregfs may not use and LTO
+removes this dead code from the final program.

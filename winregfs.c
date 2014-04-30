@@ -12,7 +12,11 @@
  *
  * TODO:
  *
- * * Finish write support
+ * * Fix 8 KiB file write limit issue (may really be in ntreg.c)
+ *   - For now an error is issued on attempts to write >8192 bytes
+ *     since there are extremely few values that contain this much
+ *     data; the XP compatibility shim cache is pretty much the
+ *     only value of such a size (all others are <6000 bytes)
  *
  */
 
@@ -146,7 +150,7 @@ static int escape_fwdslash(char *path)
 	char *p, *q;
 	char temp[ABSPATHLEN];
 
-	LOAD_WD();
+	LOAD_WD_LOGONLY();
 
 	/* Avoid likely unnecessary work */
 	if (!strchr(path, '/')) return 0;
@@ -178,7 +182,7 @@ static int unescape_fwdslash(char *path)
 	char *p, *q;
 	char temp[ABSPATHLEN];
 
-	LOAD_WD();
+	LOAD_WD_LOGONLY();
 
 	/* Avoid likely unnecessary work */
 	if (!strchr(path, slash[0])) return 0;
@@ -205,6 +209,7 @@ static int unescape_fwdslash(char *path)
 
 #if ENABLE_NKOFS_CACHE_STATS
 # if ENABLE_LOGGING
+/* Log current cache stats every 100th cache event */
 static void log_cache_stats(struct winregfs_data *wd)
 {
 	float c, h;
@@ -226,6 +231,7 @@ static void log_cache_stats(struct winregfs_data *wd)
 # endif
 
 
+/* Collect information on NK offset cache success/failure */
 static inline void cache_stats(struct winregfs_data *wd, char hit)
 {
 	switch (hit) {
@@ -252,6 +258,24 @@ static inline void cache_stats(struct winregfs_data *wd, char hit)
 #endif /* NKOFS_CACHE_STATS */
 
 
+/* Hashes are faster! This is my ultra crummy hashing function.
+ *
+ * Word size is configurable in config.h as desired.
+ *
+ * I tried adding a bit rotate after XOR as well as with/without
+ * the "tail" being hashed in. I also tried 8, 16, 32, and 64 bit
+ * hash sizes. I also changed the cache item count on powers of 2 
+ * from 1 all the way to 1024. The best total success stats at the
+ * least number of cache items seems to be achieved with this combo:
+ *
+ * 32-bit hashes, XOR only, include the tail, 64 cache items
+ *
+ * More cache items didn't raise hit rates enough to care but raised
+ * processing time sharply. Other hash size/method combos only seemed
+ * to significantly increase false hash matches and slow things down.
+ *
+ * Now you know why cache_stats() exists  ;-)
+ */
 static inline hash_t cache_hash(const char *string)
 {
 	hash_t hash = 0x11;
@@ -335,6 +359,7 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath,
 			} else cache_stats(wd, HASH_FAIL);
 		} else cache_stats(wd, HASH_MISS);
 		if (update_cache) return 0;
+		/* If we've hit item 0, return the cache ring position to the end of the ring */
 		if (!i) i = CACHE_ITEMS;
 		i--;
 		if (i == wd->cache_pos) break;
@@ -459,6 +484,7 @@ static int winregfs_access(const char *path, int mode)
 }
 
 
+/* Get file attributes; size is adjusted for conversions we perform transparently */
 static int winregfs_getattr(const char *path, struct stat *stbuf)
 {
 	struct nk_key *key;
@@ -628,6 +654,12 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return 0;
 }
 
+
+/* This really doesn't do anything now, but in the future we should
+ * implement a proper open/write/release cycle and proper locking.
+ * The chances of this code NEEDING this are very slim. Most users
+ * are likely to access data in a very serialized manner.
+ */
 static int winregfs_open(const char *path, struct fuse_file_info *fi)
 {
 	struct nk_key *key;
@@ -698,6 +730,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	LOG("open: No such file or directory for %s\n", path);
 	return -ENOENT;
 }
+
 
 static int winregfs_read(const char *path, char *buf, size_t size,
 		off_t offset, struct fuse_file_info *fi)
@@ -808,6 +841,30 @@ read_wildcard:
 }
 
 
+/* This function makes it painfully clear how ugly dealing with the
+ * registry can be. REG_MULTI_SZ data types are the worst thing ever
+ * designed and a special place in Hell exists with that data type.
+ *
+ * In the future, this function has the potential to become more
+ * efficient if the "read-to-write" behavior could be eliminated.
+ * Right now, any write at an offset other than zero will require
+ * reading the existing value into the buffer, updating it, then
+ * writing it back, which is grossly inefficient but is also the only
+ * way to do this easily (and it's still reasonably quick too.)
+ *
+ * I wrote this entire program with just read-only support in about
+ * two days, but THIS function single-handedly ate three days of my
+ * life for testing and debugging...and it's still not where I want
+ * it to be.
+ *
+ * Writes are limited to 8192 bytes maximum because somewhere between
+ * here and ntreg.c we're losing the data. ntreg will allocate all the
+ * needed blocks and fill with zeros, and 8192 bytes of data will be
+ * placed, followed by zeroes until the end. Since the chances of ever
+ * needing to write such a large value size are very slim, I decided
+ * to cap writes at 8192 bytes and worry about this much later in the
+ * future.
+ */
 static int winregfs_write(const char *path, const char *buf,
 		size_t size, off_t offset, struct fuse_file_info *fi)
 {
@@ -852,6 +909,11 @@ static int winregfs_write(const char *path, const char *buf,
 	}
 
 	newsize = offset + size;
+	if(newsize > 8192 || kv->len > 8192) {
+		LOG("write: 8 KiB value size limit exceeded: %s\n", path);
+		free(kv->data); free(kv);
+		return -EFBIG;
+	}
 
 	switch(type) {
 	case REG_DWORD:
@@ -949,9 +1011,11 @@ static int winregfs_write(const char *path, const char *buf,
 			return -EINVAL;
 		}
 		break;
+
 	case REG_SZ:
 	case REG_EXPAND_SZ:
 	case REG_MULTI_SZ:
+		/* Handling offsets as well as loading existing data makes this complex */
 		if (offset != 0 && (kv->len >> 1) > newsize) newsize = kv->len >> 1;
 		if (offset > kv->len) {
 			LOG("write: attempt to write beyond end of file: %s\n", path);
@@ -1046,7 +1110,7 @@ static int winregfs_write(const char *path, const char *buf,
 }
 
 
-/* Create a new empty file */
+/* Create a new empty file (registry value) */
 static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 {
 	struct nk_key *key;
@@ -1105,6 +1169,7 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 }
 
 
+/* Remove a file (registry value) */
 static int winregfs_unlink(const char *path)
 {
 	struct nk_key *key;
@@ -1116,20 +1181,20 @@ static int winregfs_unlink(const char *path)
 
 	DLOG("unlink: %s\n", path);
 
-        sanitize_path(path, keypath, node);
+	sanitize_path(path, keypath, node);
 	process_ext(node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key, 0);
-        if (!nkofs) {
-                LOG("unlink: no offset: %s\n", keypath);
-                errno = ENOENT;
-                return -1;
-        }
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
+	if (!nkofs) {
+		LOG("unlink: no offset: %s\n", keypath);
+		errno = ENOENT;
+		return -1;
+	}
 
 	if (del_value(wd->hive, nkofs, node)) {
-                LOG("unlink: cannot delete: %s\n", path);
-                errno = ENOENT;
-                return -1;
+		LOG("unlink: cannot delete: %s\n", path);
+		errno = ENOENT;
+		return -1;
 	}
 	if (writeHive(wd->hive)) {
 		LOG("unlink: error writing changes to hive\n");
@@ -1155,19 +1220,19 @@ static int winregfs_mkdir(const char *path, mode_t mode)
 
 	DLOG("mkdir: %s\n", path);
 
-        sanitize_path(path, keypath, node);
+	sanitize_path(path, keypath, node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key, 0);
-        if (!nkofs) {
-                LOG("mkdir: no offset: %s\n", keypath);
-                errno = ENOENT;
-                return -1;
-        }
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
+	if (!nkofs) {
+		LOG("mkdir: no offset: %s\n", keypath);
+		errno = ENOENT;
+		return -1;
+	}
 
 	if (add_key(wd->hive, nkofs, node) == NULL) {
-                LOG("mkdir: cannot add key: %s\n", path);
-                errno = ENOENT;
-                return -1;
+		LOG("mkdir: cannot add key: %s\n", path);
+		errno = ENOENT;
+		return -1;
 	}
 	if (writeHive(wd->hive)) {
 		LOG("mkdir: error writing changes to hive\n");
@@ -1193,19 +1258,19 @@ static int winregfs_rmdir(const char *path)
 
 	DLOG("rmdir: %s\n", path);
 
-        sanitize_path(path, keypath, node);
+	sanitize_path(path, keypath, node);
 
-        nkofs = get_path_nkofs(wd, keypath, &key, 0);
-        if (!nkofs) {
-                LOG("rmdir: no offset: %s\n", keypath);
-                errno = ENOENT;
-                return -1;
-        }
+	nkofs = get_path_nkofs(wd, keypath, &key, 0);
+	if (!nkofs) {
+		LOG("rmdir: no offset: %s\n", keypath);
+		errno = ENOENT;
+		return -1;
+	}
 
 	if (del_key(wd->hive, nkofs, node)) {
-                LOG("rmdir: cannot delete key: %s\n", path);
-                errno = ENOENT;
-                return -1;
+		LOG("rmdir: cannot delete key: %s\n", path);
+		errno = ENOENT;
+		return -1;
 	}
 	if (writeHive(wd->hive)) {
 		LOG("rmdir: error writing changes to hive\n");
@@ -1222,7 +1287,7 @@ static int winregfs_rmdir(const char *path)
 /* Timestamps not supported, just return success */
 static int winregfs_utimens(const char *path, const struct timespec tv[2])
 {
-	LOAD_WD();
+	LOAD_WD_LOGONLY();
 	LOG("Called but not implemented: utimens\n");
 	return 0;
 }
@@ -1231,11 +1296,12 @@ static int winregfs_utimens(const char *path, const struct timespec tv[2])
 /* Truncate is stupid anyway */
 static int winregfs_truncate(const char *path, off_t len)
 {
-	LOAD_WD();
+	LOAD_WD_LOGONLY();
 	LOG("Called but not implemented: truncate (len %d)\n", (int)len);
 	return 0;
 }
 
+/* FUSE debugging placeholders for when things get "fun" */
 /*
 static int winregfs_readlink(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: readlink\n"); return -1; }
@@ -1366,11 +1432,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return 1;
 	}
+#if ENABLE_LOGGING
 	LOG("winregfs started\n");
+#endif
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
-	LOG("winregfs terminated OK\n");
 #if ENABLE_LOGGING
+	LOG("winregfs terminated OK\n");
 	fclose(wd->log);
 #endif
 	free(wd);
