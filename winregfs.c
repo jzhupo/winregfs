@@ -185,6 +185,7 @@ static int unescape_fwdslash(char *path)
 	LOAD_WD_LOGONLY();
 
 	/* Avoid likely unnecessary work */
+	DLOG("unescape_fwdslash: incoming path %s\n", path);
 	if (!strchr(path, slash[0])) return 0;
 
 	p = path;
@@ -202,6 +203,7 @@ static int unescape_fwdslash(char *path)
 		LOG("unescape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
+	DLOG("unescape_fwdslash: path %s -> %s\n", path, temp);
 	strncpy(path, temp, ABSPATHLEN);
 	return 0;
 }
@@ -406,6 +408,7 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	slash_fix(keypath);
 	unescape_fwdslash(node);
 	unescape_fwdslash(keypath);
+	DLOG("sanitize_path: path %s, keypath %s, node %s\n", path, keypath, node);
 	return 0;
 }
 /*** End helper functions ***/
@@ -519,8 +522,10 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 		return -ENOENT;
 	}
 
+	DLOG("getattr: key->no_subkeys = %d\n", key->no_subkeys);
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
+			DLOG("getattr: examining %s + %s\n", node, ex.name);
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
 				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
@@ -534,6 +539,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	}
 
 	count = 0;
+	DLOG("getattr: key->no_values = %d\n", key->no_values);
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
