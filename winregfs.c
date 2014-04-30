@@ -447,7 +447,7 @@ static int winregfs_access(const char *path, int mode)
 	}
 
 	if (key->no_subkeys) {
-		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
 				DLOG("access: ex_n: %p size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
@@ -460,7 +460,7 @@ static int winregfs_access(const char *path, int mode)
 
 	count = 0;
 	if (key->no_values) {
-		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			free(vex.name);
@@ -522,7 +522,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	DLOG("getattr: retrieved key: %p\n", (void *)key);
 
 	if (key->no_subkeys) {
-		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
 				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
@@ -537,7 +537,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	count = 0;
 	if (key->no_values) {
-		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 
@@ -631,7 +631,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 	if (key->no_subkeys) {
-		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			DLOG("readdir: n_filler: %s\n", ex.name);
 			strncpy(filename, ex.name, ABSPATHLEN);
 			free(ex.name);
@@ -642,7 +642,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	count = 0;
 	if (key->no_values) {
-		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			free(vex.name);
@@ -697,7 +697,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 	}
 
 	if (key->no_subkeys) {
-		while ((ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0)) {
+		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
 				LOG("open: Is a directory: %s\n", node);
 				free(ex.name);
@@ -708,7 +708,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 
 	count = 0;
 	if (key->no_values) {
-		while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
 			free(vex.name);
@@ -766,7 +766,7 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 	if (process_ext(node) < 0) {
 		count = 0;
 		if (key->no_values) {
-			while ((ex_next_v(wd->hive, nkofs, &count, &vex) > 0)) {
+			while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 				if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
 				else strncpy(filename, vex.name, ABSPATHLEN);
 				free(vex.name);
