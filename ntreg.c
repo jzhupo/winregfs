@@ -604,11 +604,11 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
 
   lfkey = (struct lf_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
   rikey = (struct ri_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
-  if (hdesc->size < ((int)lfkey - (int)hdesc->buffer)) {
+  if (hdesc->size < ((intptr_t)lfkey - (intptr_t)hdesc->buffer)) {
     LOG("ex_next_n: error: 'lf' key pointer beyond end of file");
     return -1;
   }
-  if (hdesc->size < ((int)rikey - (int)hdesc->buffer)) {
+  if (hdesc->size < ((intptr_t)rikey - (intptr_t)hdesc->buffer)) {
     LOG("ex_next_n: error: 'ri' key pointer beyond end of file");
     return -1;
   }
@@ -619,7 +619,7 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
     }
     /* Get the li of lf-struct that's current based on countri */
     likey = (struct li_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
-    if (hdesc->size < ((int)likey - (int)hdesc->buffer)) {
+    if (hdesc->size < ((intptr_t)likey - (intptr_t)hdesc->buffer)) {
       LOG("ex_next_n: error: 'li' key pointer beyond end of file");
       return -1;
     }
@@ -628,7 +628,7 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
     } else {
       lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
       newnkofs = lfkey->hash[*count].ofs_nk + 0x1000;
-      if (hdesc->size < ((int)newnkofs - (int)hdesc->buffer)) {
+      if (hdesc->size < newnkofs) {
         LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
         return 0;
       }
@@ -715,6 +715,10 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 
   vkofs = vlistkey[*count] + 0x1004;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
+  if (hdesc->size < vkofs) {
+	  LOG("ex_next_v: value key offset too large\n");
+	  return -1;
+  }
   if (vkkey->id != 0x6b76) {
     LOG("ex_next_v: hit non valuekey (vk) node during scan at offs 0x%0x\n",vkofs);
     return -1;
