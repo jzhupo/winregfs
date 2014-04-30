@@ -366,7 +366,7 @@ struct hive {
 /******* Function prototypes **********/
 
 char *str_dup( const char *str );
-int get_int( char *array );
+int get_int32( char *array );
 void cheap_uni2ascii(char *src, char *dest, int l);
 void cheap_ascii2uni(char *src, char *dest, int l);
 
