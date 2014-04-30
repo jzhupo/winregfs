@@ -1412,9 +1412,7 @@ int main(int argc, char *argv[])
 	}
 # if ENABLE_THREADED
 	wd->lock = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
-	if (!wd->lock) {
-		goto oom;
-	}
+	if (!wd->lock) goto oom;
 	pthread_mutex_init(wd->lock, NULL);
 # endif /* THREADED */
 	wd->cache_pos = CACHE_ITEMS - 1;

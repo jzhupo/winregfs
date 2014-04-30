@@ -10,8 +10,8 @@
 #ifndef _WINREGFS_H
 #define _WINREGFS_H
 
-#define VER "0.1"
-#define VERDATE "2014-04-20"
+#define VER "0.2"
+#define VERDATE "2014-04-30"
 
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
