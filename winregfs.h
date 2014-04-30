@@ -88,7 +88,7 @@ typedef uint_fast32_t hash_t;
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
 		  } else printf(__VA_ARGS__);
 #else
-# if ENABLE_LOGGING
+# if ENABLE_DEBUG_PRINTF
 # define DLOG(...) printf(__VA_ARGS__);
 # else
 # define DLOG(...)

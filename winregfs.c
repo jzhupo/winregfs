@@ -519,8 +519,6 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 		return -ENOENT;
 	}
 
-	DLOG("getattr: retrieved key: %p\n", (void *)key);
-
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
