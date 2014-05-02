@@ -13,8 +13,11 @@
 #define VER "0.2"
 #define VERDATE "2014-04-30"
 
+#ifndef _FSCK_
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
+#endif
+
 #include "config.h"
 
 /*** Check config.h settings for sanity ***/
@@ -36,6 +39,12 @@
 # if !CACHE_ITEMS
 # error ENABLE_NKOFS_CACHE enabled; CACHE_ITEMS must be set and non-zero
 # endif
+#endif
+#ifdef _FSCK_
+#undef ENABLE_LOGGING
+#define ENABLE_LOGGING 0
+#undef ENABLE_THREADED
+#define ENABLE_THREADED 0
 #endif
 /*** End sanity checks ***/
 
@@ -79,7 +88,11 @@ typedef uint_fast32_t hash_t;
 		  wd = fuse_get_context()->private_data;
 #else
 #define LOAD_WD_LOGONLY()
-#define LOG(...) printf(__VA_ARGS__);
+# if ENABLE_DEBUG_PRINTF
+# define LOG(...) printf(__VA_ARGS__);
+# else
+# define LOG(...)
+# endif
 #endif
 
 /* Use DLOG for places where logging may be high-volume */

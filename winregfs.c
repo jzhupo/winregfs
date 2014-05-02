@@ -124,11 +124,16 @@ static int process_ext(char *node)
 
 
 /* Add the type extension to the registry value name */
-static inline void add_val_ext(char *filename, const struct vex_data *vex)
+static inline int add_val_ext(char *filename, const struct vex_data *vex)
 {
+	if (vex->type > REG_MAX) {
+		LOG("add_val_ext: error: value type out of range: %s\n", filename);
+		return 1;
+	}
 	strncpy(filename, vex->name, ABSPATHLEN);
 	strncat(filename, ".", ABSPATHLEN);
 	strncat(filename, ext[vex->type], ABSPATHLEN);
+	return 0;
 }
 
 
@@ -185,7 +190,6 @@ static int unescape_fwdslash(char *path)
 	LOAD_WD_LOGONLY();
 
 	/* Avoid likely unnecessary work */
-	DLOG("unescape_fwdslash: incoming path %s\n", path);
 	if (!strchr(path, slash[0])) return 0;
 
 	p = path;
@@ -203,7 +207,6 @@ static int unescape_fwdslash(char *path)
 		LOG("unescape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
-	DLOG("unescape_fwdslash: path %s -> %s\n", path, temp);
 	strncpy(path, temp, ABSPATHLEN);
 	return 0;
 }
@@ -525,7 +528,6 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	DLOG("getattr: key->no_subkeys = %d\n", key->no_subkeys);
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
-			DLOG("getattr: examining %s + %s\n", node, ex.name);
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
 				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
@@ -647,12 +649,20 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	count = 0;
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
-			else add_val_ext(filename, &vex);
-			free(vex.name);
-			escape_fwdslash(filename);
-			DLOG("readdir: v_filler: %s\n", filename);
-			filler(buf, filename, NULL, 0);
+			if (strlen(vex.name) == 0) {
+				strncpy(filename, "@", 2);
+				free(vex.name);
+			} else {
+				if (!add_val_ext(filename, &vex)) {
+					free(vex.name);
+					escape_fwdslash(filename);
+					DLOG("readdir: v_filler: %s\n", filename);
+					filler(buf, filename, NULL, 0);
+				} else {
+					free(vex.name);
+					LOG("readdir: error reading %s/%s\n", path, filename);
+				}
+			}
 		}
 	}
 	return 0;
