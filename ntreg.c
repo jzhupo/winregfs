@@ -41,10 +41,12 @@
 #include "winregfs.h"
 #include "ntreg.h"
 
+#if ENABLE_DEBUG_PRINTF
 #undef LOG
 #define LOG(...) printf(__VA_ARGS__)
 #undef DLOG
 #define DLOG(...) printf(__VA_ARGS__)
+#endif
 
 #define ZEROFILL      1  /* Fill blocks with zeroes when allocating and deallocating */
 
@@ -696,9 +698,15 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 	  LOG("ex_next_v: nkofs is NULL\n");
 	  return -1;
   }
+  if ((nkofs + sizeof(struct nk_key)) > hdesc->size) {
+	  LOG("ex_next_v: 'nk' offset beyond end of file\n");
+	  return -1;
+  }
+
   key = (struct nk_key *)(hdesc->buffer + nkofs);
+
   if (key->id != 0x6b6e) {
-    LOG("ex_next_v error: Not a 'nk' node at 0x%0x\n",nkofs);
+    LOG("ex_next_v: not a 'nk' node at 0x%0x\n",nkofs);
     return -1;
   }
 
@@ -714,11 +722,11 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
   }
 
   vkofs = vlistkey[*count] + 0x1004;
-  vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
-  if (hdesc->size < vkofs) {
+  if ((vkofs + sizeof(struct vk_key)) > hdesc->size) {
 	  LOG("ex_next_v: value key offset too large\n");
 	  return -1;
   }
+  vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   if (vkkey->id != 0x6b76) {
     LOG("ex_next_v: hit non valuekey (vk) node during scan at offs 0x%0x\n",vkofs);
     return -1;
@@ -782,7 +790,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
     return strlen(path);
   }
 
-  strncpy(tmp,path,ABSPATHLEN-1);
+  strncpy(tmp, path, ABSPATHLEN-1);
 
   if (key->type & 0x20)
     keyname = mem_str(key->keyname, key->len_name);
@@ -798,7 +806,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
   memcpy(path + 1, keyname, len_name);
   free(keyname);
   strncpy(path + len_name + 1, tmp, maxlen - 6 - len_name);
-  return get_abs_path(hdesc, key->ofs_parent+0x1004, path, maxlen); /* go back one more */
+  return get_abs_path(hdesc, key->ofs_parent + 0x1004, path, maxlen); /* go back one more */
 }
 
 
