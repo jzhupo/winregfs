@@ -690,8 +690,8 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
 int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 {
   struct nk_key *key /* , *newnkkey */ ;
-  int vkofs, vlistofs;
-  intptr_t *vlistkey;
+  int32_t vkofs, vlistofs;
+  int32_t *vlistkey;
   struct vk_key *vkkey;
 
   if (!nkofs) {
@@ -715,7 +715,7 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
   }
 
   vlistofs = key->ofs_vallist + 0x1004;
-  vlistkey = (intptr_t *)(hdesc->buffer + vlistofs);
+  vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
   if (hdesc->size < vlistofs) {
 	  LOG("ex_next_v: value list offset too large\n");
 	  return -1;
