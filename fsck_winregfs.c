@@ -56,8 +56,8 @@ void show_progress(struct fsck_stat *stats) {
 	if (stats->update_delay > 0) {
 		stats->update_delay--;
 		return;
-	} else stats->update_delay = 1000;
-	printf("Keys: %d    Values: %d  \r",
+	} else stats->update_delay = 500;
+	printf("Keys: %d  Values: %d  \r",
 		stats->keys, stats->values);
 	return;
 }
@@ -132,15 +132,14 @@ int main(int argc, char *argv[])
 	int error_count;
 	struct fsck_stat stats;
 
-	fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 	if ((argc < 2) || (argv[argc-1][0] == '-')) {
+		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 		fprintf(stderr, "\nUsage: %s [options] hivename\n\n", argv[0]);
 		return 1;
 	}
 
 	/* Pull hive file name from command line */
 	strncpy(file, argv[argc-1], ABSPATHLEN);
-	fprintf(stderr, "Scanning hive %s\n", file);
 
 	/* malloc() and initialize cache pointers/data */
 	wd.hive = openHive(file, HMODE_RW);
@@ -168,17 +167,21 @@ int main(int argc, char *argv[])
 			stats.e_read_val +
 			stats.e_type);
 	/* Show final stats for everything */
-	printf("                                                     \n");
-	printf("Number of keys:        %d\n", stats.keys);
-	printf("Number of values:      %d\n", stats.values);
-	printf("Maximum key depth:     %d\n", stats.maxdepth);
-	printf("\n");
-	printf("Path traversal errors: %d\n", stats.e_travpath);
-	printf("'nk' offset errors:    %d\n", stats.e_nkofs);
-	printf("Key read errors:       %d\n", stats.e_read_key);
-	printf("Value read errors:     %d\n", stats.e_read_val);
-	printf("Key type errors:       %d\n", stats.e_type);
-	printf("-------------------------\n");       
-	printf("Total hive errors:     %d\n\n", error_count);
+	printf("Keys: %d   Values: %d   Max key depth: %d\n", stats.keys, stats.values, stats.maxdepth);
+	if (stats.e_travpath)
+	printf("\nPath traversal errors: %d\n", stats.e_travpath);
+	if (stats.e_nkofs)
+	printf("\n'nk' offset errors:    %d\n", stats.e_nkofs);
+	if (stats.e_read_key)
+	printf("\nKey read errors:       %d\n", stats.e_read_key);
+	if (stats.e_read_val)
+	printf("\nValue read errors:     %d\n", stats.e_read_val);
+	if (stats.e_type)
+	printf("\nKey type errors:       %d\n", stats.e_type);
+	if (error_count) {
+	printf("\nHive %s has %d total errors.\n\n", file, error_count);
+	} else {
+	printf("Hive %s is clean.\n\n", file);
+	}
 	return (error_count ? 1 : 0);
 }
