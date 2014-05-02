@@ -22,7 +22,7 @@
 #include "ntreg.h"
 #include "winregfs.h"
 
-struct winregfs_data *wd;
+struct winregfs_data wd;
 
 struct fsck_stat {
 	int e_travpath;
@@ -33,6 +33,7 @@ struct fsck_stat {
 	int keys;
 	int values;
 	int maxdepth;
+	int update_delay;
 };
 
 void invalidate_cache(void) {
@@ -51,10 +52,13 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 /*** End helper functions ***/
 
 
-void show_progress(struct fsck_stat *stats, int depth) {
-	if (stats->maxdepth < depth) stats->maxdepth = depth;
-	printf("Keys: %d    Values: %d   depth: %d (max depth %d)  \r",
-		stats->keys, stats->values, depth, stats->maxdepth);
+void show_progress(struct fsck_stat *stats) {
+	if (stats->update_delay > 0) {
+		stats->update_delay--;
+		return;
+	} else stats->update_delay = 1000;
+	printf("Keys: %d    Values: %d  \r",
+		stats->keys, stats->values);
 	return;
 }
 
@@ -74,24 +78,25 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth)
 	char keypath[ABSPATHLEN];
 
 	depth++;
+	if (stats->maxdepth < depth) stats->maxdepth = depth;
 	stats->keys++;
-	show_progress(stats, depth);
+	show_progress(stats);
 	strncpy(keypath, path, ABSPATHLEN);
 
-	nkofs = trav_path(wd->hive, 0, keypath, TPF_NK_EXACT);
+	nkofs = trav_path(wd.hive, 0, keypath, TPF_NK_EXACT);
 	if (!nkofs) {
 		stats->e_travpath++;
 		return -1;
 	}
 	nkofs += 4;
-	if(nkofs > wd->hive->size) {
+	if(nkofs > wd.hive->size) {
 		stats->e_nkofs++;
 		return -1;
 	}
-	key = (struct nk_key *)(wd->hive->buffer + nkofs);
+	key = (struct nk_key *)(wd.hive->buffer + nkofs);
 
 	if (key->no_subkeys) {
-		while ((i = ex_next_n(wd->hive, nkofs, &count, &countri, &ex)) > 0) {
+		while ((i = ex_next_n(wd.hive, nkofs, &count, &countri, &ex)) > 0) {
 			strncpy(filename, keypath, ABSPATHLEN);
 			if(strncmp(keypath, "\\", 3)) strncat(filename, "\\", ABSPATHLEN);
 			strncat(filename, ex.name, ABSPATHLEN);
@@ -103,9 +108,9 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth)
 
 	count = 0;
 	if (key->no_values) {
-		while ((i = ex_next_v(wd->hive, nkofs, &count, &vex)) > 0) {
+		while ((i = ex_next_v(wd.hive, nkofs, &count, &vex)) > 0) {
 			stats->values++;
-			show_progress(stats, depth);
+			show_progress(stats);
 			if (vex.type > REG_MAX) stats->e_type++;
 			strncpy(filename, keypath, ABSPATHLEN);
 			strncat(filename, "\\", ABSPATHLEN);
@@ -127,21 +132,19 @@ int main(int argc, char *argv[])
 	int error_count;
 	struct fsck_stat stats;
 
+	fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 	if ((argc < 2) || (argv[argc-1][0] == '-')) {
-		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 		fprintf(stderr, "\nUsage: %s [options] hivename\n\n", argv[0]);
 		return 1;
 	}
 
 	/* Pull hive file name from command line */
 	strncpy(file, argv[argc-1], ABSPATHLEN);
-
-	wd = (struct winregfs_data *) malloc(sizeof(struct winregfs_data));
-	if (!wd) goto oom;
+	fprintf(stderr, "Scanning hive %s\n", file);
 
 	/* malloc() and initialize cache pointers/data */
-	wd->hive = openHive(file, HMODE_RW);
-	if (!wd->hive) {
+	wd.hive = openHive(file, HMODE_RW);
+	if (!wd.hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return 1;
 	}
@@ -154,24 +157,28 @@ int main(int argc, char *argv[])
 	stats.keys = 0;
 	stats.values = 0;
 	stats.maxdepth = 0;
+	stats.update_delay = 0;
 	/* Start at the hive root */
 	path[0] = '\\'; path[1] = '\0';
 	process_key(&stats, path, -1);
-	closeHive(wd->hive);
-	free(wd);
+	closeHive(wd.hive);
 	error_count = (stats.e_travpath +
 			stats.e_nkofs +
 			stats.e_read_key +
 			stats.e_read_val +
 			stats.e_type);
-	printf("\n\nPath traversal errors: %d\n", stats.e_travpath);
+	/* Show final stats for everything */
+	printf("                                                     \n");
+	printf("Number of keys:        %d\n", stats.keys);
+	printf("Number of values:      %d\n", stats.values);
+	printf("Maximum key depth:     %d\n", stats.maxdepth);
+	printf("\n");
+	printf("Path traversal errors: %d\n", stats.e_travpath);
 	printf("'nk' offset errors:    %d\n", stats.e_nkofs);
 	printf("Key read errors:       %d\n", stats.e_read_key);
 	printf("Value read errors:     %d\n", stats.e_read_val);
 	printf("Key type errors:       %d\n", stats.e_type);
-	printf("\nTotal hive errors:   %d\n\n", error_count);
+	printf("-------------------------\n");       
+	printf("Total hive errors:     %d\n\n", error_count);
 	return (error_count ? 1 : 0);
-oom:
-	fprintf(stderr, "Error: out of memory\n");
-	return 1;
 }

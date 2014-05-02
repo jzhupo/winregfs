@@ -11,7 +11,7 @@
 #define _WINREGFS_H
 
 #define VER "0.2"
-#define VERDATE "2014-04-30"
+#define VERDATE "2014-05-01"
 
 #ifndef _FSCK_
 #define FUSE_USE_VERSION 26
