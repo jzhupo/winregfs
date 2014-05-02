@@ -38,6 +38,13 @@ Features include:
 * "Wildcard" name matching on reads, i.e. "cat foo/bar" matches "foo/bar.sz"
 * Friendly DWORD editing in hexadecimal ASCII text rather than raw data
 
+Also included is a tool called "fsck.winregfs" which will perform a basic check
+of the integrity of a registry hive. It recursively follows all possible keys
+and values, checking for errors in offsets, reading data, and value types. To
+use it, type "fsck.winregfs [hivename]" and when the scan completes a detailed
+list of statistics and error counts will be produced. The exit status can be
+checked (i.e. in a script) for success or failure of the check.
+
 A few keys and value names in the Windows registry such as MIME types contain
 forward slash characters; winregfs substitutes "_SLASH_" where a forward
 slash appears in names.
