@@ -133,14 +133,12 @@ $ cat reg/Microsoft/Windows\ NT/CurrentVersion/Winlogon/Userinit.sz
 C:\WINDOWS\system32\userinit.exe,
 ---
 
-Perhaps check if some system policies are set (note that REG_DWORD will
-probably change in a future release to text files instead of raw data):
+Perhaps check if some system policies are set (note that REG_DWORD values now
+work as friendly hexadecimal text files instead of raw data):
 
 ---
-$ hexdump -C \
+$ cat \
 > reg/Policies/Microsoft/Windows/System/Allow-LogonScript-NetbiosDisabled.dw
-00000000  01 00 00 00                                       |....|
-00000004
----
+00000001
 
 You can probably figure out what to do with it from here. ;-)
