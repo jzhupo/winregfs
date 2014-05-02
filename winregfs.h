@@ -10,7 +10,7 @@
 #ifndef _WINREGFS_H
 #define _WINREGFS_H
 
-#define VER "0.2"
+#define VER "0.3"
 #define VERDATE "2014-05-01"
 
 #ifndef _FSCK_
