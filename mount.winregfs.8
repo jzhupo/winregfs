@@ -1,0 +1,20 @@
+.\" Copyright (c) 2014 Jody Bruchon
+.\" Licensed under the GNU General Public License v2
+.\"
+.TH winregfs 8 "1 May 2014" "mount.winregfs"
+.SH NAME
+winregfs \- Windows registry FUSE filesystem
+.SH SYNOPSIS
+.B mount.winregfs
+\fB[\fIfuse_options\fP\fB[,...]]\fR
+.I hivefile mountpoint
+.SH DESCRIPTION
+\fBwinregfs\fR is a FUSE-based filesystem driver that enables accessing of 
+Windows registry hive files as ordinary filesystems.
+.SH KNOWN ISSUES
+\fBwinregfs\fP does not currently support writing value data greater than 
+8,192 bytes (8 KiB) in size. If such a write occurs, the data will be 
+truncated and an error will be returned.
+.SH SEE ALSO
+.BR fusermount (8), 
+.BR fsck.winregfs (8)

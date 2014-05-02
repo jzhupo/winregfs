@@ -22,6 +22,7 @@ Config.in
 /fsck.winregfs
 /mount.winregfs
 /debug.log
+/*.?.gz
 
 #
 # Backups / patches
