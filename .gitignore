@@ -19,6 +19,7 @@ Config.in
 # Normal output and testing dirs
 #
 /foo
+/fsck.winregfs
 /mount.winregfs
 /debug.log
 
