@@ -22,6 +22,8 @@
 #include "ntreg.h"
 #include "winregfs.h"
 
+#define UPDATE_INTERVAL 300
+
 struct winregfs_data wd;
 
 struct fsck_stat {
@@ -56,7 +58,7 @@ void show_progress(struct fsck_stat *stats) {
 	if (stats->update_delay > 0) {
 		stats->update_delay--;
 		return;
-	} else stats->update_delay = 500;
+	} else stats->update_delay = UPDATE_INTERVAL;
 	printf("Keys: %d  Values: %d  \r",
 		stats->keys, stats->values);
 	return;
@@ -177,7 +179,7 @@ int main(int argc, char *argv[])
 	if (stats.e_read_val)
 	printf("\nValue read errors:     %d\n", stats.e_read_val);
 	if (stats.e_type)
-	printf("\nKey type errors:       %d\n", stats.e_type);
+	printf("\nValue type errors:       %d\n", stats.e_type);
 	if (error_count) {
 	printf("\nHive %s has %d total errors.\n\n", file, error_count);
 	} else {
