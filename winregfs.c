@@ -798,19 +798,21 @@ read_wildcard:
 
 	type = get_val_type(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (type == -1) {
-		LOG("read: No such value %s\n", node);
+		LOG("read: No such value '%s'\n", node);
 		return -EINVAL;
 	}
 
 	len = get_val_len(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (len < 0) {
-		LOG("read: Value %s is not readable\n", node);
+		if (*node == '\0') strncpy(node, "@", 2);
+		LOG("read: Value not readable: '%s'\n", node);
 		return -EINVAL;
 	}
 
 	kv = get_val2buf(wd->hive, NULL, nkofs, node, 0, TPF_VK_EXACT);
 	if (!kv) {
-		LOG("read: Value %s could not fetch data\n", node);
+		if (*node == '\0') strncpy(node, "@", 2);
+		LOG("read: Can't read value data for '%s'\n", node);
 		return -EINVAL;
 	}
 	data = (void *)(kv->data);
@@ -838,13 +840,11 @@ read_wildcard:
 		len = bytes2hex(dqw, data, 4);
 		string = dqw;
 		break;
+	default:
+		LOG("read: Unknown type %d, treating as REG_BINARY\n", type);
 	case REG_BINARY:
 		string = data;
 		break;
-	default:
-		LOG("read: Cannot handle type %d\n", type);
-		free(kv->data); free(kv);
-		return -EINVAL;
 	}
 
 	if (offset < len) {

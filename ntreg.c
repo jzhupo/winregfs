@@ -876,9 +876,9 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
   }
   buf = hdesc->buffer;
 
-  if (!vofs) vofs = hdesc->rootofs+4;     /* No current key given , so start at root */
+  if (!vofs) vofs = hdesc->rootofs + 4;     /* No current key given, so start at root */
 
-  if ( !(type & TPF_ABS) && *path == '\\' && *(path+1) != '\\') {      /* Start from root if path starts with \ */
+  if (!(type & TPF_ABS) && *path == '\\' && *(path + 1) != '\\') {      /* Start from root if path starts with \ */
     path++;
     vofs = hdesc->rootofs+4;
   }
@@ -889,7 +889,7 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
     return 0;
   }
 
-  if ( !(type & TPF_ABS)) {  /* Only traverse path if not absolute literal value name passed */
+  if (!(type & TPF_ABS)) {  /* Only traverse path if not absolute literal value name passed */
 
     /* TODO: Need to rethink this.. */
 
@@ -901,25 +901,25 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
       *partptr++ = path[plen];
     }
     *partptr = '\0';
-    if (!plen) return (vofs-4);     /* Path has no length - we're there! */
+    if (!plen) return (vofs - 4);     /* Path has no length - we're there! */
 
     adjust = (path[plen] == '\\' ) ? 1 : 0;
 
-    if ( (plen == 1) && (*(path+1) && *path == '.') && !(type & TPF_EXACT)) {     /* Handle '.' current dir */
-      return trav_path(hdesc,vofs,path+plen+adjust,type);
+    if ((plen == 1) && (*(path + 1) && *path == '.') && !(type & TPF_EXACT)) {     /* Handle '.' current dir */
+      return trav_path(hdesc, vofs, path + plen + adjust, type);
     }
-    if ( !(type & TPF_EXACT) && (plen == 2) && !strncasecmp("..",path,2) ) { /* Get parent key */
+    if (!(type & TPF_EXACT) && (plen == 2) && !strncasecmp("..", path, 2)) { /* Get parent key */
       newnkofs = key->ofs_parent + 0x1004;
       /* Return parent (or only root if at the root) */
-      return trav_path(hdesc, (key->type == KEY_ROOT ? vofs : newnkofs), path+plen+adjust, type);
+      return trav_path(hdesc, (key->type == KEY_ROOT ? vofs : newnkofs), path + plen + adjust, type);
     }
   }
 
   /* at last name of path, and we want vk, and the nk has values */
-  if ((type & TPF_VK_ABS) || (!path[plen] && (type & TPF_VK) && key->no_values) ) {   
+  if ((type & TPF_VK_ABS) || (!path[plen] && (type & TPF_VK) && key->no_values)) {
     if (type & TPF_ABS) {
       strcpy(part, path);
-      plen = de_escape(part,0);
+      plen = de_escape(part, 0);
       partptr = part + plen;
     }
 
@@ -941,10 +941,10 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
       rikey = (struct ri_key *)lfkey;
       ricnt = rikey->no_lis;
       r = 0;
-      likey = (struct li_key *)( hdesc->buffer + rikey->hash[r].ofs_li + 0x1004 ) ;
+      likey = (struct li_key *)(hdesc->buffer + rikey->hash[r].ofs_li + 0x1004);
       subs = likey->no_keys;
       if (likey->id != 0x696c) {  /* Bwah, not li anyway, XP uses lh usually which is actually smarter */
-	lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[r].ofs_li + 0x1004 ) ;
+	lfkey = (struct lf_key *)(hdesc->buffer + rikey->hash[r].ofs_li + 0x1004);
 	likey = NULL;
       }
     } else {
@@ -970,8 +970,8 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
 	  if (newnkkey->len_name <= 0) {
 	    LOG("trav_path: warning: no name\n");
 	  } else if ( 
-		     ( ( part_len <= newnkkey->len_name ) && !(type & TPF_EXACT) ) ||
-		     ( ( part_len == newnkkey->len_name ) && (type & TPF_EXACT)  )
+		     ((part_len <= newnkkey->len_name ) && !(type & TPF_EXACT)) ||
+		     ((part_len == newnkkey->len_name ) && (type & TPF_EXACT))
 		      ) {
 	    /* Can't match if name is shorter than we look for */
             int cmp;
@@ -1110,7 +1110,7 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 
   len = vkkey->len_data & 0x7fffffff;
 
-  if ( vkkey->len_data == 0x80000000 && (exact & TPF_VK_SHORT)) {  /* Special inline case, return size of 4 (dword) */
+  if (vkkey->len_data == 0x80000000 && (exact & TPF_VK_SHORT)) {  /* Special inline case, return size of 4 (dword) */
     len = 4;
   }
 
