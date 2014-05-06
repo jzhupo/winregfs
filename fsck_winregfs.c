@@ -65,7 +65,7 @@ void show_progress(struct fsck_stat *stats) {
 }
 
 
-static int process_key(struct fsck_stat *stats, const char *path, int depth)
+static int process_key(struct fsck_stat *stats, const char *path, int depth, int verbose)
 {
 /*
  * For keys, run process_key again recursively
@@ -87,11 +87,13 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth)
 
 	nkofs = trav_path(wd.hive, 0, keypath, TPF_NK_EXACT);
 	if (!nkofs) {
+		if (verbose) printf("\rPath traversal failure: %s\n", keypath);
 		stats->e_travpath++;
 		return -1;
 	}
 	nkofs += 4;
 	if(nkofs > wd.hive->size) {
+		if (verbose) printf("\rNK offset too large: %s\n", keypath);
 		stats->e_nkofs++;
 		return -1;
 	}
@@ -103,9 +105,13 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth)
 			if(strncmp(keypath, "\\", 3)) strncat(filename, "\\", ABSPATHLEN);
 			strncat(filename, ex.name, ABSPATHLEN);
 			free(ex.name);
-			error_count += process_key(stats, filename, depth);
+			error_count += process_key(stats, filename, depth, verbose);
 		}
-		if (i < 0) stats->e_read_key++;
+		if (i < 0) {
+			if (verbose) printf("\rKey read failure: %s\n", keypath);
+			stats->e_read_key++;
+			show_progress(stats);
+		}
 	}
 
 	count = 0;
@@ -113,14 +119,21 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth)
 		while ((i = ex_next_v(wd.hive, nkofs, &count, &vex)) > 0) {
 			stats->values++;
 			show_progress(stats);
-			if (vex.type > REG_MAX) stats->e_type++;
+			if (vex.type > REG_MAX) {
+				if (verbose) printf("\rValue type %d too large: %s\n", vex.type, keypath);
+				stats->e_type++;
+			}
 			strncpy(filename, keypath, ABSPATHLEN);
 			strncat(filename, "\\", ABSPATHLEN);
 			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
 			else strncat(filename, vex.name, ABSPATHLEN);
 			free(vex.name);
 		}
-		if (i < 0) stats->e_read_val++;
+		if (i < 0) {
+			if (verbose) printf("\rValue read failure: %s\n", keypath);
+			stats->e_read_val++;
+			show_progress(stats);
+		}
 	}
 	return 0;
 
@@ -131,13 +144,18 @@ int main(int argc, char *argv[])
 {
 	char file[ABSPATHLEN];
 	char path[ABSPATHLEN];
-	int error_count;
+	int error_count, verbose = 0;
 	struct fsck_stat stats;
 
 	if ((argc < 2) || (argv[argc-1][0] == '-')) {
 		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 		fprintf(stderr, "\nUsage: %s [options] hivename\n\n", argv[0]);
 		return 1;
+	}
+
+	if (!strncmp(argv[1], "-v", 3)) {
+		printf("Verbose mode enabled\n");
+		verbose = 1;
 	}
 
 	/* Pull hive file name from command line */
@@ -161,7 +179,7 @@ int main(int argc, char *argv[])
 	stats.update_delay = 0;
 	/* Start at the hive root */
 	path[0] = '\\'; path[1] = '\0';
-	process_key(&stats, path, -1);
+	process_key(&stats, path, -1, verbose);
 	closeHive(wd.hive);
 	error_count = (stats.e_travpath +
 			stats.e_nkofs +

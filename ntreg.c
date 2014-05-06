@@ -1102,6 +1102,10 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 	return -1;
   }
   vkofs +=4;
+  if (vkofs > hdesc->size) {
+	  LOG("get_val_len: error: 'vk' offset too large: %x\n", vkofs);
+	  return -1;
+  }
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
 
   len = vkkey->len_data & 0x7fffffff;
@@ -1160,7 +1164,7 @@ void *get_val_data(struct hive *hdesc, int vofs, char *path, int val_type, int e
  * NOTE: caller must deallocate buffer! a simple free(keyval) will suffice.
  */
 struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
-			   int vofs, char *path, int type, int exact )
+			   int vofs, char *path, int type, int exact)
 {
   int l,i,parts,list,blockofs,blocksize,point,copylen,restlen;
   struct keyval *kr;
@@ -1169,6 +1173,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   void *addr;
 
   l = get_val_len(hdesc, vofs, path, exact);
+  DLOG("get_val2buf: value length for 'vk' offset %x path '\\%s' = %x\n", vofs, path, l);
   if (l == -1) {
 	  LOG("get_val2buf: get_val_len error: %s offset %d\n", path, vofs);
 	  return NULL;
@@ -1190,9 +1195,11 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   kr->len = l;
 
   if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
+    DLOG("get_val2buf: notice: kr->len > VAL_DIRECT_LIMIT: %x\n", l);
     db = (struct db_key *)keydataptr;
     if (db->id != 0x6264) {
-	LOG("get_val2buf: 'db' block expected but not found\n");
+	LOG("get_val2buf: data block expected but not found: 0x%x\n", (intptr_t)db - (intptr_t)hdesc->buffer);
+	if(!kv) { free(kr->data); free(kr); }
 	return NULL;
     }
     parts = db->no_part;
@@ -2079,7 +2086,10 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
 
   if (kv->len > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
     db = (struct db_key *)keydataptr;
-    if (db->id != 0x6264) return 0;
+    if (db->id != 0x6264) {
+	    LOG("put_buf2val: data block expected but not found: 0x%x\n", (intptr_t)db - (intptr_t)hdesc->buffer);
+	    return 0;
+    }
     parts = db->no_part;
     list = db->ofs_data + 0x1004;
     LOG("put_buf2val: long value: parts %d, list %x\n", parts, list);
