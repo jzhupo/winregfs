@@ -636,6 +636,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
+	DLOG("readdir: key->no_subkeys = %d\n", key->no_subkeys);
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			DLOG("readdir: n_filler: %s\n", ex.name);
@@ -647,10 +648,12 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	}
 
 	count = 0;
+	DLOG("readdir: key->no_values = %d\n", key->no_values);
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) {
-				strncpy(filename, "@", 2);
+				strncpy(filename, "@.sz", 5);
+				filler(buf, filename, NULL, 0);
 				free(vex.name);
 			} else {
 				if (!add_val_ext(filename, &vex)) {
