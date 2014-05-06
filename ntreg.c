@@ -344,8 +344,8 @@ int add_bin(struct hive *hdesc, int size)
 
     hdesc->buffer = realloc(hdesc->buffer, newsize);
     if (!hdesc->buffer) {
-      perror("add_bin : realloc() ");
-      abort();
+      LOG("add_bin: realloc to size %d failed\n", newsize);
+      return 0;
     }
     hdesc->size = newsize;
 
@@ -1191,7 +1191,10 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
 
   if (l > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
     db = (struct db_key *)keydataptr;
-    if (db->id != 0x6264) abort();
+    if (db->id != 0x6264) {
+	LOG("get_val2buf: 'db' block expected but not found\n");
+	return NULL;
+    }
     parts = db->no_part;
     list = db->ofs_data + 0x1004;
     LOG("get_val2buf: Long value: parts %d, list %x\n", parts, list);
@@ -2361,8 +2364,8 @@ struct hive *openHive(char *filename, int mode)
     }
   }
   if ( fstat(hdesc->filedesc,&sbuf) ) {
-    perror("stat()");
-    exit(1);
+    LOG("openHive: cannot stat hive %s\n", hdesc->filename);
+    return NULL;
   }
 
   hdesc->size = sbuf.st_size;
