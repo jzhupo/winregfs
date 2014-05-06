@@ -31,7 +31,7 @@ struct fsck_stat {
 	int e_nkofs;
 	int e_read_key;
 	int e_read_val;
-	int e_type;
+	int w_type;
 	int keys;
 	int values;
 	int maxdepth;
@@ -120,8 +120,8 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth, int
 			stats->values++;
 			show_progress(stats);
 			if (vex.type > REG_MAX) {
-				if (verbose) printf("\rValue type %d too large: %s\n", vex.type, keypath);
-				stats->e_type++;
+				if (verbose) printf("\rValue type %d is an unknown type: %s\n", vex.type, keypath);
+				stats->w_type++;
 			}
 			strncpy(filename, keypath, ABSPATHLEN);
 			strncat(filename, "\\", ABSPATHLEN);
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 {
 	char file[ABSPATHLEN];
 	char path[ABSPATHLEN];
-	int error_count, verbose = 0;
+	int error_count, warn_count, verbose = 0;
 	struct fsck_stat stats;
 
 	if ((argc < 2) || (argv[argc-1][0] == '-')) {
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 	stats.e_nkofs = 0;
 	stats.e_read_key = 0;
 	stats.e_read_val = 0;
-	stats.e_type = 0;
+	stats.w_type = 0;
 	stats.keys = 0;
 	stats.values = 0;
 	stats.maxdepth = 0;
@@ -184,8 +184,8 @@ int main(int argc, char *argv[])
 	error_count = (stats.e_travpath +
 			stats.e_nkofs +
 			stats.e_read_key +
-			stats.e_read_val +
-			stats.e_type);
+			stats.e_read_val);
+	warn_count = (stats.w_type);
 	/* Show final stats for everything */
 	printf("Keys: %d   Values: %d   Max key depth: %d\n", stats.keys, stats.values, stats.maxdepth);
 	if (stats.e_travpath)
@@ -196,12 +196,16 @@ int main(int argc, char *argv[])
 	printf("\nKey read errors:       %d\n", stats.e_read_key);
 	if (stats.e_read_val)
 	printf("\nValue read errors:     %d\n", stats.e_read_val);
-	if (stats.e_type)
-	printf("\nValue type errors:       %d\n", stats.e_type);
-	if (error_count) {
-	printf("\nHive %s has %d total errors.\n\n", file, error_count);
-	} else {
-	printf("Hive %s is clean.\n\n", file);
-	}
+	if (stats.w_type)
+	printf("\nValue type warnings:   %d\n", stats.w_type);
+	if (error_count || warn_count) {
+		printf("\nHive %s has ", file);
+		if (error_count) {
+			printf("%d total errors", error_count);
+			if (warn_count) printf(" and ");
+		}
+		if (warn_count) printf("%d total warnings", warn_count);
+		printf("\n\n");
+	} else printf("Hive %s is clean.\n\n", file);
 	return (error_count ? 1 : 0);
 }
