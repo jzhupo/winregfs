@@ -120,7 +120,7 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth, int
 			stats->values++;
 			show_progress(stats);
 			if (vex.type > REG_MAX) {
-				if (verbose) printf("\rValue type %d is an unknown type: %s\n", vex.type, keypath);
+				if (verbose) printf("\rValue type 0x%x is an unknown type: %s\n", vex.type, keypath);
 				stats->w_type++;
 			}
 			strncpy(filename, keypath, ABSPATHLEN);

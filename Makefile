@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-O2 -pipe -flto
-#CFLAGS=-O0 -Wall -g3 -pedantic
+#CFLAGS=-O2 -pipe -flto
+CFLAGS=-O0 -Wall -g3 -pedantic
 BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe
 LDFLAGS=-flto -s
 #LDFLAGS=

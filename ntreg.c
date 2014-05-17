@@ -820,7 +820,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
 int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int type)
 {
   struct vk_key *vkkey;
-  int i,vkofs,len;
+  int i, vkofs, len;
   int32_t *vlistkey;
   int approx = -1;
 
@@ -834,9 +834,9 @@ int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int typ
       return i;
     }
 
-    if ( (type & TPF_EXACT) && vkkey->len_name != len ) continue;  /* Skip if exact match and not exact size */
+    if ((type & TPF_EXACT) && vkkey->len_name != len ) continue;  /* Skip if exact match and not exact size */
 
-    if ( vkkey->len_name >= len ) {                  /* Only check for names that are longer or equal than we seek */
+    if (vkkey->len_name >= len ) {                  /* Only check for names that are longer or equal than we seek */
       if ( !strncasecmp(name, vkkey->keyname, len) ) {    /* Name match */  /* XXX: winregfs */
 	if (vkkey->len_name == len) return i;        /* Exact match always best, returns */
 	if (approx == -1) approx = i;                 /* Else remember first partial match */
@@ -869,6 +869,7 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
 
   char *partw = NULL;
   int partw_len, part_len;
+  int cmp;
 
   if (!hdesc) {
 	  LOG("trav_path: hive pointer is NULL\n");
@@ -974,14 +975,13 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
 		     ((part_len == newnkkey->len_name ) && (type & TPF_EXACT))
 		      ) {
 	    /* Can't match if name is shorter than we look for */
-            int cmp;
 	    if (newnkkey->type & 0x20) 
               cmp = strncasecmp(part,newnkkey->keyname,part_len);
             else
               cmp = memcmp(partw, newnkkey->keyname, partw_len);
 	    if (!cmp) {
 	      free(partw);
-	      return trav_path(hdesc, newnkofs, path+plen+adjust, type);
+	      return trav_path(hdesc, newnkofs, path + plen + adjust, type);
 	    }
 	  }
 	} /* if id OK */

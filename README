@@ -4,6 +4,9 @@
      If you have any questions, comments, or patches, send me an email:
                                jody@jodybruchon.com
 
+WARNING (2014-05-17): This code has some major issues and I am in the
+process of rewriting it from scratch.
+
 One of the most difficult things to deal with in years of writing Linux
 utilities to work with and repair Windows PCs is the Windows registry.
 While many excellent tools exist to work with NTFS filesystems and to change
