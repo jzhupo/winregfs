@@ -10,8 +10,7 @@
 #ifndef _WINREGFS_H
 #define _WINREGFS_H
 
-#define VER "0.3"
-#define VERDATE "2014-05-01"
+#include "version.h"
 
 #ifndef _FSCK_
 #define FUSE_USE_VERSION 26

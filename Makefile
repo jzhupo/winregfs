@@ -33,6 +33,9 @@ manual:
 clean:
 	rm -f *.o *~ mount.winregfs fsck.winregfs debug.log *.?.gz
 
+distclean:
+	rm -f *.o *~ mount.winregfs fsck.winregfs debug.log *.?.gz winregfs*.pkg.tar.*
+
 install: all
 	install -D -o root -g root -m 0644 mount.winregfs.8.gz $(DESTDIR)/$(mandir)/man8/mount.winregfs.8.gz
 #	install -D -o root -g root -m 0644 fsck.winregfs.8.gz $(DESTDIR)/$(mandir)/man8/fsck.winregfs.8.gz
