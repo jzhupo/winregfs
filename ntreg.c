@@ -1134,6 +1134,11 @@ void *get_val_data(struct hive *hdesc, int vofs, char *path, int val_type, int e
   vkofs +=4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
 
+  if (vkkey->id != 0x6b76) {
+    LOG("get_val_data: Cell ID is not 'vk': offset 0x%x, subpath \\%s\n", vkofs, path);
+    return NULL;
+  }
+
   if (vkkey->len_data == 0) {
     LOG("get_val_data: zero-length value data: %s\n", path);
     return NULL;
@@ -1173,7 +1178,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   void *addr;
 
   l = get_val_len(hdesc, vofs, path, exact);
-  DLOG("get_val2buf: value length for 'vk' offset %x path '\\%s' = %x\n", vofs, path, l);
+  DLOG("get_val2buf: value length for 'vk' offset %x subpath '\\%s' = %x\n", vofs, path, l);
   if (l == -1) {
 	  LOG("get_val2buf: get_val_len error: %s offset %d\n", path, vofs);
 	  return NULL;
@@ -1184,6 +1189,10 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   }
 
   keydataptr = get_val_data(hdesc, vofs, path, type, exact);
+  if (!keydataptr) {
+	  LOG("get_val2buf: error reading value data\n");
+	  return NULL;
+  }
   /* Allocate space for data + header, or use supplied buffer */
   if (kv) {
     kr = kv;
