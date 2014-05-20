@@ -5,3 +5,8 @@ DESTDIR may be specified to install elsewhere: make DESTDIR=/pkg install
 If your compiler doesn't support LTO, remove "-flto" from Makefile and try
 compiling again. ntreg still contains code that winregfs may not use and LTO
 removes this dead code from the final program.
+
+A script "chroot_build.sh" is provided which will perform builds in your own
+local chroot build environments and makes tar.xz package files for each one
+specified at the top of the script. This is handy for supporting multiple C
+libraries and varying machine bit sizes.
