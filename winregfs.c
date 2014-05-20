@@ -18,11 +18,15 @@
  *     data; the XP compatibility shim cache is pretty much the
  *     only value of such a size (all others are <6000 bytes)
  *
+ * * Allow arbitrary value types using a hexadecimal extension
+ *   (used in SAM and some MS Click-to-Run registry keys)
+ *
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>

@@ -1,8 +1,8 @@
 CC=gcc
-#CFLAGS=-O2 -pipe -flto
-CFLAGS=-O0 -Wall -g3 -pedantic
-BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe
-LDFLAGS=-flto -s
+CFLAGS=-O2 -pipe -flto -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables
+#CFLAGS=-O0 -Wall -g3 -pedantic
+BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe -Wall -pedantic
+LDFLAGS=-flto -s -Wl,--gc-sections
 #LDFLAGS=
 FUSE_CFLAGS=$(shell pkg-config fuse --cflags)
 FUSE_LDFLAGS=$(shell pkg-config fuse --libs)

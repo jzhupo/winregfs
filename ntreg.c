@@ -629,7 +629,7 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
     } else {
       lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
-      newnkofs = lfkey->hash[*count].ofs_nk + 0x1000;
+      newnkofs = lfkey->h.hash[*count].ofs_nk + 0x1000;
       if (hdesc->size < newnkofs) {
         LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
         return 0;
@@ -649,7 +649,7 @@ int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex
       likey = (struct li_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
     } else {
-      newnkofs = lfkey->hash[*count].ofs_nk + 0x1000;
+      newnkofs = lfkey->h.hash[*count].ofs_nk + 0x1000;
     }
   }
 
@@ -817,7 +817,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
  * returns index into table or -1 if err
  */
 
-int vlist_find(struct hive *hdesc, int vlistofs, int numval, char *name, int type)
+static int vlist_find(struct hive *hdesc, int vlistofs, int numval, const char *name, int type)
 {
   struct vk_key *vkkey;
   int i, vkofs, len;
@@ -963,7 +963,7 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
     do {
       for(i = 0; i < subs; i++) {
 	if (likey) newnkofs = likey->hash[i].ofs_nk + 0x1004;
-	else newnkofs = lfkey->hash[i].ofs_nk + 0x1004;
+	else newnkofs = lfkey->h.hash[i].ofs_nk + 0x1004;
 	newnkkey = (struct nk_key *)(buf + newnkofs);
 	if (newnkkey->id != 0x6b6e) {
 	  LOG("trav_path: error: not a 'nk' node\n");
@@ -1214,7 +1214,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
     DLOG("get_val2buf: notice: kr->len > VAL_DIRECT_LIMIT: %x\n", l);
     db = (struct db_key *)keydataptr;
     if (db->id != 0x6264) {
-	LOG("get_val2buf: data block expected but not found: 0x%x\n", (intptr_t)db - (intptr_t)hdesc->buffer);
+	LOG("get_val2buf: data block expected but not found: 0x%" PRIxPTR "\n", (intptr_t)db - (intptr_t)hdesc->buffer);
 	if(!kv) { free(kr->data); free(kr); }
 	return NULL;
     }
@@ -1693,7 +1693,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	
 	/* Now copy old, checking where to insert (alphabetically) */
 	for (o = 0, n = 0; o < oldlf->no_keys; o++,n++) {
-	  onkofs = oldlf->hash[o].ofs_nk;
+	  onkofs = oldlf->h.hash[o].ofs_nk;
 	  onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
 	  if (slot == -1) {
 
@@ -1709,11 +1709,11 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	      n++;
 	    }
 	  }
-	  newlf->hash[n].ofs_nk = oldlf->hash[o].ofs_nk;
-	  newlf->hash[n].name[0] = oldlf->hash[o].name[0];
-	  newlf->hash[n].name[1] = oldlf->hash[o].name[1];
-	  newlf->hash[n].name[2] = oldlf->hash[o].name[2];
-	  newlf->hash[n].name[3] = oldlf->hash[o].name[3];
+	  newlf->h.hash[n].ofs_nk = oldlf->h.hash[o].ofs_nk;
+	  newlf->h.hash[n].name[0] = oldlf->h.hash[o].name[0];
+	  newlf->h.hash[n].name[1] = oldlf->h.hash[o].name[1];
+	  newlf->h.hash[n].name[2] = oldlf->h.hash[o].name[2];
+	  newlf->h.hash[n].name[3] = oldlf->h.hash[o].name[3];
 	}
 	if (slot == -1) slot = oldlf->no_keys;
       } /* li else check */
@@ -1775,20 +1775,20 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
     }
   } else {  /* lh or lf */
     /* And put its offset into parents index list */
-    newlf->hash[slot].ofs_nk = newnkofs - 0x1000;
+    newlf->h.hash[slot].ofs_nk = newnkofs - 0x1000;
     newlf->no_keys++;
     if (newlf->id == 0x666c) {        /* lf hash */
-      newlf->hash[slot].name[0] = 0;
-      newlf->hash[slot].name[1] = 0;
-      newlf->hash[slot].name[2] = 0;
-      newlf->hash[slot].name[3] = 0;
-      strncpy(newlf->hash[slot].name, name, 4);
+      newlf->h.hash[slot].name[0] = 0;
+      newlf->h.hash[slot].name[1] = 0;
+      newlf->h.hash[slot].name[2] = 0;
+      newlf->h.hash[slot].name[3] = 0;
+      strncpy(newlf->h.hash[slot].name, name, 4);
     } else if (newlf->id == 0x686c) {  /* lh. XP uses this. hashes whole name */
       for (i = 0,hash = 0; i < strlen(name); i++) {
 	hash *= 37;
 	hash += reg_touppertable[(unsigned char)name[i]];
       }
-      newlf->lh_hash[slot].hash = hash;
+      newlf->h.lh_hash[slot].hash = hash;
     }
 
     /* Allocate space for our new lf list and copy it into reg */
@@ -1921,7 +1921,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
       /* Now copy old, checking where to delete */
       for (o = 0, n = 0; o < oldlf->no_keys; o++,n++) {
 
-	onkofs = oldlf->hash[o].ofs_nk;
+	onkofs = oldlf->h.hash[o].ofs_nk;
 	onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
 
 	if (slot == -1 && (onk->len_name == namlen) && !strncmp(name, onk->keyname, onk->len_name)) {
@@ -1932,11 +1932,11 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	}
 
 	if (n < newlf->no_keys) { /* Only store if not last index in old */
-	  newlf->hash[n].ofs_nk = oldlf->hash[o].ofs_nk;
-	  newlf->hash[n].name[0] = oldlf->hash[o].name[0];
-	  newlf->hash[n].name[1] = oldlf->hash[o].name[1];
-	  newlf->hash[n].name[2] = oldlf->hash[o].name[2];
-	  newlf->hash[n].name[3] = oldlf->hash[o].name[3];
+	  newlf->h.hash[n].ofs_nk = oldlf->h.hash[o].ofs_nk;
+	  newlf->h.hash[n].name[0] = oldlf->h.hash[o].name[0];
+	  newlf->h.hash[n].name[1] = oldlf->h.hash[o].name[1];
+	  newlf->h.hash[n].name[2] = oldlf->h.hash[o].name[2];
+	  newlf->h.hash[n].name[3] = oldlf->h.hash[o].name[3];
 	}
 
       }
@@ -2103,7 +2103,7 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
   if (kv->len > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
     db = (struct db_key *)keydataptr;
     if (db->id != 0x6264) {
-	    LOG("put_buf2val: data block expected but not found: 0x%x\n", (intptr_t)db - (intptr_t)hdesc->buffer);
+	    LOG("put_buf2val: data block expected but not found: 0x%" PRIxPTR "\n", (intptr_t)db - (intptr_t)hdesc->buffer);
 	    return 0;
     }
     parts = db->no_part;
