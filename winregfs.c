@@ -411,7 +411,7 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	slash_fix(keypath);
 	unescape_fwdslash(node);
 	unescape_fwdslash(keypath);
-	DLOG("sanitize_path: path %s, keypath %s, node %s\n", path, keypath, node);
+/*	DLOG("sanitize_path: path %s, keypath %s, node %s\n", path, keypath, node); */
 	return 0;
 }
 /*** End helper functions ***/
@@ -653,6 +653,7 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) {
 				strncpy(filename, "@.sz", 5);
+				DLOG("readdir: v_filler: %s\n", filename);
 				filler(buf, filename, NULL, 0);
 				free(vex.name);
 			} else {
@@ -794,8 +795,6 @@ static int winregfs_read(const char *path, char *buf, size_t size,
 		return -EINVAL;
 	}
 read_wildcard:
-	if (*node == '@') *node = '\0';
-
 	type = get_val_type(wd->hive, nkofs, node, TPF_VK_EXACT);
 	if (type == -1) {
 		LOG("read: No such value '%s'\n", node);

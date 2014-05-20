@@ -1101,12 +1101,19 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 	LOG("get_val_len: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
   }
+
   vkofs +=4;
   if (vkofs > hdesc->size) {
 	  LOG("get_val_len: error: 'vk' offset too large: %x\n", vkofs);
 	  return -1;
   }
+
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
+  if (vkkey->id != 0x6b76) {
+    LOG("get_val_len: Cell ID is not 'vk': offset 0x%x, subpath \\%s\n", vkofs, path);
+    return -1;
+  }
+
 
   len = vkkey->len_data & 0x7fffffff;
 
@@ -1171,7 +1178,7 @@ void *get_val_data(struct hive *hdesc, int vofs, char *path, int val_type, int e
 struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
 			   int vofs, char *path, int type, int exact)
 {
-  int l,i,parts,list,blockofs,blocksize,point,copylen,restlen;
+  int l, i, parts, list, blockofs, blocksize, point, copylen, restlen;
   struct keyval *kr;
   void *keydataptr;
   struct db_key *db;
