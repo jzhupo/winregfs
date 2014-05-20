@@ -10,11 +10,14 @@ winregfs \- Windows registry FUSE filesystem
 .I hivefile mountpoint
 .SH DESCRIPTION
 \fBwinregfs\fR is a FUSE-based filesystem driver that enables accessing of 
-Windows registry hive files as ordinary filesystems.
+Windows registry hive files as ordinary filesystems. Registry hive file 
+editing can be performed with ordinary shell scripts and command-line tools 
+once mounted.
 .SH KNOWN ISSUES
 \fBwinregfs\fP does not currently support writing value data greater than 
 8,192 bytes (8 KiB) in size. If such a write occurs, the data will be 
-truncated and an error will be returned.
+truncated and an error will be returned. Unicode data is not currently 
+supported, partly due to a lack of support in the ntreg library.
 .SH SEE ALSO
 .BR fusermount (8), 
 .BR fsck.winregfs (8)

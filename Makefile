@@ -26,6 +26,7 @@ fsck.winregfs: fsck_winregfs.o ntreg.o
 
 manual:
 	gzip -9 < mount.winregfs.8 > mount.winregfs.8.gz
+	gzip -9 < fsck.winregfs.8 > fsck.winregfs.8.gz
 
 .c.o:
 	$(CC) -c $(BUILD_CFLAGS) $(FUSE_CFLAGS) $(CFLAGS) $<
@@ -38,7 +39,7 @@ distclean:
 
 install: all
 	install -D -o root -g root -m 0644 mount.winregfs.8.gz $(DESTDIR)/$(mandir)/man8/mount.winregfs.8.gz
-#	install -D -o root -g root -m 0644 fsck.winregfs.8.gz $(DESTDIR)/$(mandir)/man8/fsck.winregfs.8.gz
+	install -D -o root -g root -m 0644 fsck.winregfs.8.gz $(DESTDIR)/$(mandir)/man8/fsck.winregfs.8.gz
 	install -D -o root -g root -m 0755 -s mount.winregfs $(DESTDIR)/$(bindir)/mount.winregfs
 	install -D -o root -g root -m 0755 -s fsck.winregfs $(DESTDIR)/$(bindir)/fsck.winregfs
 

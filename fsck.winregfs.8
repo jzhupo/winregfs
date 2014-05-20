@@ -1,0 +1,22 @@
+.\" Copyright (c) 2014 Jody Bruchon
+.\" Licensed under the GNU General Public License v2
+.\"
+.TH winregfs 8 "20 May 2014" "fsck.winregfs"
+.SH NAME
+fsck.winregfs \- Check a Windows registry file
+.SH SYNOPSIS
+.B fsck.winregfs
+.I [-v] hivefile
+.SH DESCRIPTION
+\fBfsck.winregfs\fP scans a Windows registry hive file for problems that 
+indicate the hive has been damaged by hardware or software issues. If the 
+\fI-v\fP option is specified, the program will output detailed information 
+about the problems it finds.
+.SH LIMITATIONS
+\fBfsck.winregfs\fP works by recursively reading the key and value data
+structures in the registry hive. Currently it does not read the actual data 
+stored in a value, and due to the nature of the ntreg library's interfaces 
+the checks are currently limited to reporting that errors exist; the details 
+of the error conditions encountered are not broken down in the final output.
+.SH SEE ALSO
+.BR mount.winregfs (8)
