@@ -7,6 +7,6 @@
  *
  */
 
-#define VER "0.3"
-#define VERDATE "2014-05-01"
+#define VER "0.4"
+#define VERDATE "2014-05-20"
 
