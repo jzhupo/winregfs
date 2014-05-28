@@ -1392,10 +1392,16 @@ int main(int argc, char *argv[])
 	char file[ABSPATHLEN];
 	int i;
 
+	/* Show version and return successfully if requested */
+	if (argc == 2 && !strncasecmp(argv[1], "-v", 2)) {
+		fprintf(stderr, "Windows Registry Filesystem %s (%s)\n", VER, VERDATE);
+		return EXIT_SUCCESS;
+	}
+
 	if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-')) {
 		fprintf(stderr, "Windows Registry Filesystem %s (%s)\n", VER, VERDATE);
 		fprintf(stderr, "\nUsage: %s [options] hivename mountpoint\n\n", argv[0]);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	/* Pull hive file name from command line and pass to FUSE */
@@ -1418,7 +1424,7 @@ int main(int argc, char *argv[])
 	wd->log = fopen("debug.log", "w");
 	if (!wd->log) {
 		fprintf(stderr, "Error: couldn't open log file\n");
-		return 1;
+		return EXIT_FAILURE;
 	}
 #endif
 #if ENABLE_NKOFS_CACHE
@@ -1448,7 +1454,7 @@ int main(int argc, char *argv[])
 	wd->hive = openHive(file, HMODE_RW);
 	if (!wd->hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
-		return 1;
+		return EXIT_FAILURE;
 	}
 #if ENABLE_LOGGING
 	LOG("winregfs started\n");
@@ -1463,5 +1469,5 @@ int main(int argc, char *argv[])
 	return i;
 oom:
 	fprintf(stderr, "Error: out of memory\n");
-	return 1;
+	return EXIT_FAILURE;
 }

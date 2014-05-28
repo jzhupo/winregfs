@@ -49,7 +49,7 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	strncpy(node, path, ABSPATHLEN);
 	dirname(keypath);   /* need to read the root key */
 	strncpy(node, basename(node), ABSPATHLEN); 
-	return 0;
+	return EXIT_SUCCESS;
 }
 /*** End helper functions ***/
 
@@ -135,7 +135,7 @@ static int process_key(struct fsck_stat *stats, const char *path, int depth, int
 			show_progress(stats);
 		}
 	}
-	return 0;
+	return EXIT_SUCCESS;
 
 }
 
@@ -147,10 +147,14 @@ int main(int argc, char *argv[])
 	int error_count, warn_count, verbose = 0;
 	struct fsck_stat stats;
 
+	if (argc == 2 && !strncasecmp(argv[1], "-v", 2)) {
+		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
+		return EXIT_SUCCESS;
+	}
 	if ((argc < 2) || (argv[argc-1][0] == '-')) {
 		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 		fprintf(stderr, "\nUsage: %s [options] hivename\n\n", argv[0]);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	if (!strncmp(argv[1], "-v", 3)) {
@@ -165,7 +169,7 @@ int main(int argc, char *argv[])
 	wd.hive = openHive(file, HMODE_RW);
 	if (!wd.hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	stats.e_travpath = 0;
@@ -207,5 +211,5 @@ int main(int argc, char *argv[])
 		if (warn_count) printf("%d total warnings", warn_count);
 		printf("\n\n");
 	} else printf("Hive %s is clean.\n\n", file);
-	return (error_count ? 1 : 0);
+	return (error_count ? EXIT_FAILURE : EXIT_SUCCESS);
 }
