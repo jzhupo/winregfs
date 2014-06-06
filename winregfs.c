@@ -411,11 +411,11 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	strncpy(keypath, path, ABSPATHLEN);
 	strncpy(node, path, ABSPATHLEN);
 	dirname(keypath);   /* need to read the root key */
-	strncpy(node, basename(node), ABSPATHLEN); 
+	node = basename(node);
 	slash_fix(keypath);
 	unescape_fwdslash(node);
 	unescape_fwdslash(keypath);
-/*	DLOG("sanitize_path: path %s, keypath %s, node %s\n", path, keypath, node); */
+	/* DLOG("sanitize_path: path %s, keypath %s, node %s\n", path, keypath, node); */
 	return 0;
 }
 /*** End helper functions ***/
@@ -536,7 +536,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 				stbuf->st_mode = S_IFDIR | 0777;
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
-				DLOG("getattr: ex_n: %p size %d c %d cri %d\n",
+				DLOG("getattr: ex_n: %s size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
 				free(ex.name);
 				return 0;
