@@ -408,10 +408,12 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath,
 /* Converts a path to the required formats for keypath/nodepath usage */
 static inline int sanitize_path(const char *path, char *keypath, char *node)
 {
+	char temp[ABSPATHLEN];
+
 	strncpy(keypath, path, ABSPATHLEN);
-	strncpy(node, path, ABSPATHLEN);
+	strncpy(temp, path, ABSPATHLEN);
 	dirname(keypath);   /* need to read the root key */
-	node = basename(node);
+	strncpy(node, basename(temp), ABSPATHLEN);
 	slash_fix(keypath);
 	unescape_fwdslash(node);
 	unescape_fwdslash(keypath);
