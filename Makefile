@@ -43,3 +43,5 @@ install: all
 	install -D -o root -g root -m 0755 -s mount.winregfs $(DESTDIR)/$(bindir)/mount.winregfs
 	install -D -o root -g root -m 0755 -s fsck.winregfs $(DESTDIR)/$(bindir)/fsck.winregfs
 
+package:
+	+./chroot_build.sh
