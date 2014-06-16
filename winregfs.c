@@ -478,12 +478,12 @@ static int winregfs_access(const char *path, int mode)
 			free(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				if (!(mode & X_OK)) {
-					DLOG("access: OK: ex_v: %p size %d c %d\n",
-							path, vex.size, count);
+					DLOG("access: OK: ex_v: nkofs %x vkofs %x size %d c %d\n",
+							nkofs, vex.vkoffs, vex.size, count);
 					return 0;
 				} else {
-					DLOG("access: exec not allowed: ex_v: %p size %d c %d\n",
-							path, vex.size, count);
+					DLOG("access: exec not allowed: ex_v: nkofs %x vkofs %x size %d c %d\n",
+							nkofs, vex.vkoffs, vex.size, count);
 					errno = EACCES;
 					return -1;
 				}
@@ -587,8 +587,8 @@ getattr_wildcard:
 				default:
 					stbuf->st_size = vex.size;
 				}
-				DLOG("getattr: ex_v: %p size %d c %d\n",
-						path, vex.size, count);
+				DLOG("getattr: ex_v: nkofs %x vkofs %x size %d c %d\n",
+						nkofs, vex.vkoffs, vex.size, count);
 				return 0;
 			}
 
