@@ -1459,7 +1459,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 #if ENABLE_LOGGING
-	LOG("winregfs started\n");
+	LOG("winregfs %s (%s) started\n", VER, VERDATE);
 #endif
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
