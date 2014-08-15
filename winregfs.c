@@ -12,6 +12,10 @@
  *
  * TODO:
  *
+ * * Modify ntreg.c to track and write only changed pages
+ *   - Right now writeHive() writes the ENTIRE hive which is
+ *     wasteful. Track 4KB pages and write only chagned ones.
+ *
  * * Fix 8 KiB file write limit issue (may really be in ntreg.c)
  *   - For now an error is issued on attempts to write >8192 bytes
  *     since there are extremely few values that contain this much

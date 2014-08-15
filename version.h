@@ -8,6 +8,6 @@
  */
 
 #ifndef __WINREGFS_VERSION_H__
-#define VER "0.4.1"
-#define VERDATE "2014-06-06"
+#define VER "0.5"
+#define VERDATE "2014-08-15"
 #endif
