@@ -512,13 +512,16 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	char check1[ABSPATHLEN];
 	char check2[ABSPATHLEN];
 	char *token;
+	int attrmask = 0777;
 
 	LOAD_WD();
 
 	DLOG("getattr: %s\n", path);
 
+	if (wd->ro) attrmask = 0555;
+
 	if (strcmp(path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0555;
+		stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 		stbuf->st_nlink = 2;
 		stbuf->st_size = 1;
 		return 0;
@@ -537,7 +540,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
-				stbuf->st_mode = S_IFDIR | 0777;
+				stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
 				DLOG("getattr: ex_n: %s size %d c %d cri %d\n",
@@ -572,7 +575,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 getattr_wildcard:
-				stbuf->st_mode = S_IFREG | 0666;
+				stbuf->st_mode = S_IFREG | (0666 & attrmask);
 				stbuf->st_nlink = 1;
 				switch(vex.type) {
 				case REG_QWORD:
@@ -909,6 +912,12 @@ static int winregfs_write(const char *path, const char *buf,
 
 	DLOG("write: %s (%d + %d)\n", path, (int)size, (int)offset);
 
+	if (wd->ro) {
+		LOG("write: read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
+
 	sanitize_path(path, keypath, node);
 
 	/* Extract type information, remove extension from name */
@@ -1146,6 +1155,12 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 
 	DLOG("mknod: %s\n", path);
 
+	if (wd->ro) {
+		LOG("mknod: read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
+
 	/* There are quite a few errors to watch out for */
 	/* FUSE already handles the "already exists" case */
 	if (!(mode & S_IFREG)) {
@@ -1205,6 +1220,12 @@ static int winregfs_unlink(const char *path)
 
 	DLOG("unlink: %s\n", path);
 
+	if (wd->ro) {
+		LOG("unlink: read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
+
 	sanitize_path(path, keypath, node);
 	process_ext(node);
 
@@ -1244,6 +1265,12 @@ static int winregfs_mkdir(const char *path, mode_t mode)
 
 	DLOG("mkdir: %s\n", path);
 
+	if (wd->ro) {
+		LOG("mkdir: read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
+
 	sanitize_path(path, keypath, node);
 
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
@@ -1281,6 +1308,12 @@ static int winregfs_rmdir(const char *path)
 	LOAD_WD();
 
 	DLOG("rmdir: %s\n", path);
+
+	if (wd->ro) {
+		LOG("rmdir: read-only filesystem\n");
+		errno = EROFS;
+		return -1;
+	}
 
 	sanitize_path(path, keypath, node);
 
@@ -1404,7 +1437,7 @@ int main(int argc, char *argv[])
 
 	if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-')) {
 		fprintf(stderr, "Windows Registry Filesystem %s (%s)\n", VER, VERDATE);
-		fprintf(stderr, "\nUsage: %s [options] hivename mountpoint\n\n", argv[0]);
+		fprintf(stderr, "\nUsage: %s [-o ro] [fuse_options] hivename mountpoint\n\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
@@ -1423,6 +1456,10 @@ int main(int argc, char *argv[])
 
 	wd = (struct winregfs_data *) malloc(sizeof(struct winregfs_data));
 	if (!wd) goto oom;
+
+	/* Set read-only mode if applicable */
+	wd->ro = 0;
+	if (argc > 4 && !strncmp(argv[1], "-o", 2)&& !strncmp(argv[2], "ro", 2)) wd->ro = 1;
 
 #if ENABLE_LOGGING
 	wd->log = fopen("debug.log", "w");
@@ -1455,13 +1492,16 @@ int main(int argc, char *argv[])
 	wd->delay = 1;
 # endif
 #endif /* NKOFS_CACHE */
-	wd->hive = openHive(file, HMODE_RW);
+
+
+	if (!wd->ro) wd->hive = openHive(file, HMODE_RW);
+		else wd->hive = openHive(file, HMODE_RO);
 	if (!wd->hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return EXIT_FAILURE;
 	}
 #if ENABLE_LOGGING
-	LOG("winregfs %s (%s) started, hive %s\n", VER, VERDATE, file);
+	LOG("winregfs %s (%s) started for hive %s\n", VER, VERDATE, file);
 #endif
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);

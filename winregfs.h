@@ -122,6 +122,7 @@ typedef uint_fast32_t hash_t;
 
 struct winregfs_data {
 	struct hive *hive;
+	int ro;
 #if ENABLE_LOGGING
 	FILE *log;
 #endif
