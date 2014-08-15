@@ -130,6 +130,8 @@ static int process_ext(char *node)
 /* Add the type extension to the registry value name */
 static inline int add_val_ext(char *filename, const struct vex_data *vex)
 {
+	LOAD_WD_LOGONLY();
+
 	if (vex->type > REG_MAX) {
 		LOG("add_val_ext: error: value type out of range: %s\n", filename);
 		return 1;
@@ -1459,7 +1461,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 #if ENABLE_LOGGING
-	LOG("winregfs %s (%s) started\n", VER, VERDATE);
+	LOG("winregfs %s (%s) started, hive %s\n", VER, VERDATE, file);
 #endif
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	closeHive(wd->hive);
