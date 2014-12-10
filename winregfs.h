@@ -1,7 +1,7 @@
 /*
  * Windows Registry FUSE Filesystem
  *
- * Written by Jody Bruchon <jody@jodybruchon.com> 2014-04-20
+ * Copyright (C) 2014, 2015 by Jody Bruchon <jody@jodybruchon.com>
  *
  * Licensed under GNU GPL v2. See LICENSE and README for details.
  *
