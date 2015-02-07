@@ -112,7 +112,7 @@ static const unsigned char reg_touppertable[] = {
 */
 
 
-int strn_casecmp(const char *s1, const char *s2, size_t n)
+static int strn_casecmp(const char *s1, const char *s2, size_t n)
 {
   char r;
 
@@ -129,7 +129,7 @@ int strn_casecmp(const char *s1, const char *s2, size_t n)
 }
 
 
-char *str_dup(const char *str)
+static char *str_dup(const char *str)
 {
     char *str_new;
 
@@ -145,7 +145,7 @@ char *str_dup(const char *str)
  * Uses length only, does not check for nulls
  */
 
-char *mem_str(const char *str, int len)
+static char *mem_str(const char *str, int len)
 {
     char *str_new;
 
@@ -159,7 +159,7 @@ char *mem_str(const char *str, int len)
 }
 
 /* Get INTEGER from memory. This is probably low-endian specific? */
-int get_int32(char *array)
+static inline int get_int32(char *array)
 {
 	return ((array[0]&0xff) + ((array[1]<<8)&0xff00) +
 		   ((array[2]<<16)&0xff0000) +
@@ -225,7 +225,7 @@ int parse_block(struct hive *hdesc, int vofs)
  * returns: offset to start of page (and page header)
  */
 
-int find_page_start(struct hive *hdesc, int vofs)
+int find_page_start(struct hive * const hdesc, const int vofs)
 {
   int r, prev;
   struct hbin_page *h;
@@ -253,7 +253,7 @@ int find_page_start(struct hive *hdesc, int vofs)
  * returns: offset to free block, or 0 for error
  */
 
-int find_free_blk(struct hive *hdesc, int pofs, int size)
+int find_free_blk(struct hive * const hdesc, const int pofs, const int size)
 {
   int vofs = pofs + 0x20;
   int seglen;
@@ -289,7 +289,7 @@ int find_free_blk(struct hive *hdesc, int pofs, int size)
  * returns: offset to free block, 0 if not found or error
  */
 
-int find_free(struct hive *hdesc, int size)
+int find_free(struct hive * const hdesc, int size)
 {
   int r, blk;
   struct hbin_page *h;
@@ -324,7 +324,7 @@ int find_free(struct hive *hdesc, int size)
  * returns offset to first block in new hbin
   */
 
-int add_bin(struct hive *hdesc, int size)
+int add_bin(struct hive * const hdesc, int size)
 {
   int r,newsize,newbinofs;
   struct hbin_page *newbin;
@@ -589,7 +589,8 @@ int free_block(struct hive *hdesc, int blk)
  * returns: -1 = error. 0 = end of key. 1 = more subkeys to scan
  * NOTE: caller must free the name-buffer (struct ex_data *name)
  */
-int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex_data *sptr)
+int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
+		int *countri, struct ex_data * const sptr)
 {
   struct nk_key *key, *newnkkey;
   int newnkofs;
