@@ -42,6 +42,8 @@
 #include "ntreg.h"
 #include "winregfs.h"
 
+/* Avoid str[n]cmp calls by doing this simple check directly */
+#define PATH_IS_ROOT(a) (a[0] == '/' && a[1] == '\0')
 
 /* Value type file extensions */
 const char *ext[REG_MAX + 1] = {
@@ -56,7 +58,7 @@ const int ss = sizeof(slash) - 1;
 /*** Non-FUSE helper functions ***/
 
 /* Return offset to the first non-hexadecimal char in string */
-static int find_nonhex(const char *string, int len)
+static int find_nonhex(const char * const restrict string, int len)
 {
 	unsigned char q;
 	int offset;
@@ -73,7 +75,8 @@ static int find_nonhex(const char *string, int len)
 
 
 /* Convert hex string to integer */
-static int convert_hex(const char *string, uint64_t *dest, int len)
+static int convert_hex(const char * const restrict string,
+		uint64_t * const restrict dest, int len)
 {
 	unsigned char q;
 	int offset;
@@ -94,7 +97,8 @@ static int convert_hex(const char *string, uint64_t *dest, int len)
 
 
 /* Convert value to hex string, return string length */
-static int bytes2hex(char *string, const void *data, const int bytes)
+static int bytes2hex(char * const restrict string,
+		const void * const restrict data, const int bytes)
 {
 	int i, j = 0;
 	unsigned char c;
@@ -114,9 +118,9 @@ static int bytes2hex(char *string, const void *data, const int bytes)
 }
 
 /* Remove extension and return numeric value for value type */
-static int process_ext(char *node)
+static int process_ext(char * const node)
 {
-	char *str_ext;
+	char * restrict str_ext;
 	int i = 0;
 
 	str_ext = strrchr(node, '.');
@@ -132,7 +136,8 @@ static int process_ext(char *node)
 
 
 /* Add the type extension to the registry value name */
-static inline int add_val_ext(char *filename, const struct vex_data *vex)
+static inline int add_val_ext(char * const restrict filename,
+		const struct vex_data * const restrict vex)
 {
 	LOAD_WD_LOGONLY();
 
@@ -148,7 +153,7 @@ static inline int add_val_ext(char *filename, const struct vex_data *vex)
 
 
 /* Convert slashes to backslashes */
-static inline void slash_fix(char *path)
+static inline void slash_fix(char * const restrict path)
 {
 	int i;
 
@@ -159,10 +164,11 @@ static inline void slash_fix(char *path)
 
 
 /* Forward slashes cannot appear in pathname components */
-static int escape_fwdslash(char *path)
+static int escape_fwdslash(char * const path)
 {
 	int pos = 0;
-	char *p, *q;
+	const char *p;
+	char *q;
 	char temp[ABSPATHLEN];
 
 	LOAD_WD_LOGONLY();
@@ -194,7 +200,8 @@ static int escape_fwdslash(char *path)
 static int unescape_fwdslash(char *path)
 {
 	int pos = 0;
-	char *p, *q;
+	const char *p;
+	char *q;
 	char temp[ABSPATHLEN];
 
 	LOAD_WD_LOGONLY();
@@ -225,7 +232,7 @@ static int unescape_fwdslash(char *path)
 #if ENABLE_NKOFS_CACHE_STATS
 # if ENABLE_LOGGING
 /* Log current cache stats every 100th cache event */
-static void log_cache_stats(struct winregfs_data *wd)
+static void log_cache_stats(struct winregfs_data * const restrict wd)
 {
 	float c, h;
 
@@ -247,7 +254,8 @@ static void log_cache_stats(struct winregfs_data *wd)
 
 
 /* Collect information on NK offset cache success/failure */
-static inline void cache_stats(struct winregfs_data *wd, char hit)
+static inline void cache_stats(struct winregfs_data * const restrict wd,
+		char hit)
 {
 	switch (hit) {
 	case CACHE_HIT:
@@ -291,17 +299,17 @@ static inline void cache_stats(struct winregfs_data *wd, char hit)
  *
  * Now you know why cache_stats() exists  ;-)
  */
-static inline hash_t cache_hash(const char *string)
+static inline hash_t cache_hash(const char * const string)
 {
 	hash_t hash = 0x11;
-	hash_t *input;
+	const hash_t * input;
 	char *tail;
 	int count, l, s;
 
-	input = (hash_t *)string;
 	l = strlen(string);
 	s = l / sizeof(hash_t);
 	count = s;
+	input = (hash_t *)string;
 	for (; count > 0; count--) {
 		hash ^= (*input);
 		input++;
@@ -331,8 +339,9 @@ void invalidate_cache(void)
  * function call will refresh the cache entry for the path
  * and stop (useful for things that modify directories)
  */
-static int get_path_nkofs(struct winregfs_data *wd, char *keypath,
-		struct nk_key **key, int update_cache)
+static int get_path_nkofs(struct winregfs_data * const restrict wd,
+		const char * const restrict keypath,
+		struct nk_key ** const key, int update_cache)
 {
 	int nkofs;
 
@@ -412,7 +421,8 @@ static int get_path_nkofs(struct winregfs_data *wd, char *keypath,
 
 
 /* Converts a path to the required formats for keypath/nodepath usage */
-static inline int sanitize_path(const char *path, char *keypath, char *node)
+static inline int sanitize_path(const char * const restrict path,
+		char * const restrict keypath, char * const restrict node)
 {
 	char temp[ABSPATHLEN];
 
@@ -432,7 +442,7 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 /*** FUSE functions ***/
 
 /* Check if access to a particular file is allowed */
-static int winregfs_access(const char *path, int mode)
+static int winregfs_access(const char * const restrict path, int mode)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -454,7 +464,7 @@ static int winregfs_access(const char *path, int mode)
 		return -1;
 	} */
 
-	if (strcmp(path, "/") == 0) return 0;
+	if (PATH_IS_ROOT(path)) return 0;
 	sanitize_path(path, keypath, node);
 
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
@@ -503,7 +513,8 @@ static int winregfs_access(const char *path, int mode)
 
 
 /* Get file attributes; size is adjusted for conversions we perform transparently */
-static int winregfs_getattr(const char *path, struct stat *stbuf)
+static int winregfs_getattr(const char * const restrict path,
+		struct stat * const restrict stbuf)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -524,7 +535,7 @@ static int winregfs_getattr(const char *path, struct stat *stbuf)
 
 	if (wd->ro) attrmask = 0555;
 
-	if (strcmp(path, "/") == 0) {
+	if (PATH_IS_ROOT(path)) {
 		stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 		stbuf->st_nlink = 2;
 		stbuf->st_size = 1;
@@ -623,8 +634,9 @@ getattr_wildcard:
 }
 
 
-static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-			 off_t offset, struct fuse_file_info *fi)
+static int winregfs_readdir(const char * const restrict path,
+		void *buf, fuse_fill_dir_t filler,
+		off_t offset, struct fuse_file_info *fi)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -693,7 +705,8 @@ static int winregfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
  * The chances of this code NEEDING this are very slim. Most users
  * are likely to access data in a very serialized manner.
  */
-static int winregfs_open(const char *path, struct fuse_file_info *fi)
+static int winregfs_open(const char * const restrict path,
+		struct fuse_file_info *fi)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -717,7 +730,7 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 		return -EACCES;
 	} */
 
-	if (strcmp(path, "/") == 0) {
+	if (PATH_IS_ROOT(path)) {
 		LOG("open: Is a directory: %s\n", path);
 		return -EISDIR;
 	}
@@ -765,7 +778,8 @@ static int winregfs_open(const char *path, struct fuse_file_info *fi)
 }
 
 
-static int winregfs_read(const char *path, char *buf, size_t size,
+static int winregfs_read(const char * const restrict path,
+		char * const restrict buf, size_t size,
 		off_t offset, struct fuse_file_info *fi)
 {
 	int nkofs;
@@ -896,7 +910,8 @@ read_wildcard:
  * to cap writes at 8192 bytes and worry about this much later in the
  * future.
  */
-static int winregfs_write(const char *path, const char *buf,
+static int winregfs_write(const char * const restrict path,
+		const char * const restrict buf,
 		size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	int nkofs;
@@ -907,10 +922,10 @@ static int winregfs_write(const char *path, const char *buf,
 	int i, type;
 	size_t newsize;
 	char *newbuf = NULL;
-	char *string = NULL;
+	char * restrict string = NULL;
 	uint64_t val;  /* DWORD/QWORD hex string value */
-	struct keyval *kv = NULL;
-	struct keyval *newkv = NULL;
+	struct keyval * restrict kv = NULL;
+	struct keyval * restrict newkv = NULL;
 
 	LOAD_WD();
 
@@ -967,7 +982,6 @@ static int winregfs_write(const char *path, const char *buf,
 			return -EINVAL;
 		}
 		i = convert_hex(buf, &val, i);
-		LOG("3\n");
 		if (i == -1) {
 			LOG("write: bad DWORD file format: %s\n", path);
 			free(kv->data); free(kv);
@@ -1009,7 +1023,7 @@ static int winregfs_write(const char *path, const char *buf,
 		*((uint64_t *)kv->data) = val;
 		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
 
-		if (i) {
+		if (!i) {
 			LOG("write: error writing file: %s\n", path);
 			free(kv->data); free(kv);
 			return -EINVAL;
@@ -1148,7 +1162,8 @@ static int winregfs_write(const char *path, const char *buf,
 
 
 /* Create a new empty file (registry value) */
-static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
+static int winregfs_mknod(const char * const restrict path,
+		mode_t mode, dev_t dev)
 {
 	struct nk_key *key;
 	int nkofs, ktype;
@@ -1173,7 +1188,7 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 		return -1;
 	}
 
-	if (strcmp(path, "/") == 0) {
+	if (PATH_IS_ROOT(path)) {
 		LOG("mknod: no path specified\n");
 		errno = EEXIST;
 		return -1;
@@ -1213,7 +1228,7 @@ static int winregfs_mknod(const char *path, mode_t mode, dev_t dev)
 
 
 /* Remove a file (registry value) */
-static int winregfs_unlink(const char *path)
+static int winregfs_unlink(const char * const restrict path)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -1258,7 +1273,8 @@ static int winregfs_unlink(const char *path)
 
 
 /* Make a key (directory); creation mode is ignored */
-static int winregfs_mkdir(const char *path, mode_t mode)
+static int winregfs_mkdir(const char * const restrict path,
+		mode_t mode)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -1302,7 +1318,7 @@ static int winregfs_mkdir(const char *path, mode_t mode)
 
 
 /* Remove a key (directory) */
-static int winregfs_rmdir(const char *path)
+static int winregfs_rmdir(const char * const restrict path)
 {
 	struct nk_key *key;
 	int nkofs;
@@ -1346,7 +1362,8 @@ static int winregfs_rmdir(const char *path)
 
 
 /* Timestamps not supported, just return success */
-static int winregfs_utimens(const char *path, const struct timespec tv[2])
+static int winregfs_utimens(const char * const restrict path,
+		const struct timespec tv[2])
 {
 	LOAD_WD_LOGONLY();
 	LOG("Called but not implemented: utimens\n");
@@ -1355,7 +1372,8 @@ static int winregfs_utimens(const char *path, const struct timespec tv[2])
 
 
 /* Truncate is stupid anyway */
-static int winregfs_truncate(const char *path, off_t len)
+static int winregfs_truncate(const char * const restrict path,
+		off_t len)
 {
 	LOAD_WD_LOGONLY();
 	LOG("Called but not implemented: truncate (len %d)\n", (int)len);
@@ -1429,7 +1447,7 @@ static struct fuse_operations winregfs_oper = {
 
 int main(int argc, char *argv[])
 {
-	struct winregfs_data *wd;
+	struct winregfs_data * restrict wd;
 	char file[ABSPATHLEN];
 	int i;
 

@@ -43,7 +43,9 @@ void invalidate_cache(void) {
 }
 
 /* Converts a path to the required formats for keypath/nodepath usage */
-static inline int sanitize_path(const char *path, char *keypath, char *node)
+static inline int sanitize_path(const char * const restrict path,
+		char * const restrict keypath,
+		char * const restrict node)
 {
 	strncpy(keypath, path, ABSPATHLEN);
 	strncpy(node, path, ABSPATHLEN);
@@ -51,10 +53,9 @@ static inline int sanitize_path(const char *path, char *keypath, char *node)
 	strncpy(node, basename(node), ABSPATHLEN); 
 	return EXIT_SUCCESS;
 }
-/*** End helper functions ***/
 
 
-void show_progress(struct fsck_stat *stats) {
+void show_progress(struct fsck_stat * const restrict stats) {
 	if (stats->update_delay > 0) {
 		stats->update_delay--;
 		return;
@@ -65,7 +66,9 @@ void show_progress(struct fsck_stat *stats) {
 }
 
 
-static int process_key(struct fsck_stat *stats, const char *path, int depth, int verbose)
+static int process_key(struct fsck_stat * const restrict stats,
+		const char * const restrict path,
+		int depth, int verbose)
 {
 /*
  * For keys, run process_key again recursively
