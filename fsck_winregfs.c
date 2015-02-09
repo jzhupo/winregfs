@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
 	strncpy(file, argv[argc-1], ABSPATHLEN);
 
 	/* malloc() and initialize cache pointers/data */
-	wd.hive = openHive(file, HMODE_RW);
+	wd.hive = open_hive(file, HMODE_RW);
 	if (!wd.hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return EXIT_FAILURE;
@@ -187,7 +187,7 @@ int main(int argc, char *argv[])
 	/* Start at the hive root */
 	path[0] = '\\'; path[1] = '\0';
 	process_key(&stats, path, -1, verbose);
-	closeHive(wd.hive);
+	close_hive(wd.hive);
 	error_count = (stats.e_travpath +
 			stats.e_nkofs +
 			stats.e_read_key +

@@ -13,7 +13,7 @@
  * TODO:
  *
  * * Modify ntreg.c to track and write only changed pages
- *   - Right now writeHive() writes the ENTIRE hive which is
+ *   - Right now write_hive() writes the ENTIRE hive which is
  *     wasteful. Track 4KB pages and write only chagned ones.
  *
  * * Fix 8 KiB file write limit issue (may really be in ntreg.c)
@@ -1151,7 +1151,7 @@ static int winregfs_write(const char * const restrict path,
 		break;
 	}
 
-	if (writeHive(wd->hive)) {
+	if (write_hive(wd->hive)) {
 		LOG("write: error writing changes to hive\n");
 		errno = EPERM;
 		return -1;
@@ -1215,7 +1215,7 @@ static int winregfs_mknod(const char * const restrict path,
 		errno = ENOSPC;
 		return -1;
 	}
-	if (writeHive(wd->hive)) {
+	if (write_hive(wd->hive)) {
 		LOG("mknod: error writing changes to hive\n");
 		errno = EPERM;
 		return -1;
@@ -1260,7 +1260,7 @@ static int winregfs_unlink(const char * const restrict path)
 		errno = ENOENT;
 		return -1;
 	}
-	if (writeHive(wd->hive)) {
+	if (write_hive(wd->hive)) {
 		LOG("unlink: error writing changes to hive\n");
 		errno = EPERM;
 		return -1;
@@ -1305,7 +1305,7 @@ static int winregfs_mkdir(const char * const restrict path,
 		errno = ENOENT;
 		return -1;
 	}
-	if (writeHive(wd->hive)) {
+	if (write_hive(wd->hive)) {
 		LOG("mkdir: error writing changes to hive\n");
 		errno = EPERM;
 		return -1;
@@ -1349,7 +1349,7 @@ static int winregfs_rmdir(const char * const restrict path)
 		errno = ENOENT;
 		return -1;
 	}
-	if (writeHive(wd->hive)) {
+	if (write_hive(wd->hive)) {
 		LOG("rmdir: error writing changes to hive\n");
 		errno = EPERM;
 		return -1;
@@ -1516,8 +1516,8 @@ int main(int argc, char *argv[])
 #endif /* NKOFS_CACHE */
 
 
-	if (!wd->ro) wd->hive = openHive(file, HMODE_RW);
-		else wd->hive = openHive(file, HMODE_RO);
+	if (!wd->ro) wd->hive = open_hive(file, HMODE_RW);
+		else wd->hive = open_hive(file, HMODE_RO);
 	if (!wd->hive) {
 		fprintf(stderr, "Error: couldn't open %s\n", file);
 		return EXIT_FAILURE;
@@ -1526,7 +1526,7 @@ int main(int argc, char *argv[])
 	LOG("winregfs %s (%s) started for hive %s\n", VER, VERDATE, file);
 #endif
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
-	closeHive(wd->hive);
+	close_hive(wd->hive);
 #if ENABLE_LOGGING
 	LOG("winregfs terminated OK\n");
 	fclose(wd->log);

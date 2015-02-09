@@ -323,13 +323,21 @@ struct keyval {
 #define HTYPE_SOFTWARE	4
 
 
+/* Dirty page linked list elements
+ * Caution: pages are 4KB block counts, not addresses or bytes!
+ */
+struct dirtypage {
+	unsigned int page;
+	struct dirtypage *next;
+};
 
-/* Hive definition, allocated by openHive(), dealloc by closeHive()
+
+/* Hive definition, allocated by open_hive(), dealloc by close_hive()
  * contains state data, must be passed in all functions
  */
 struct hive {
   char *filename;	/* Hives filename */
-  int  filedesc;	/* File descriptor (only valid if state == OPEN) */
+  FILE *fp;		/* File pointer (only valid if state == OPEN) */
   int  state;		/* Current state of hive */
   int  pages;		/* Number of pages, total */
   int  useblk;		/* Total # of used blocks */
@@ -340,6 +348,8 @@ struct hive {
   int  rootofs;		/* Offset of root-node */
   int  lastbin;		/* Offset to last HBIN */
   int  endofs;		/* Offset of first non HBIN page, we can expand from here */
+  int  page_count;	/* winregfs: number of 4K data pages */
+  struct dirtypage *dp;	/* winregfs: dirty page list head */
   int16_t nkindextype;	/* Subkey-indextype the root key uses */
   char *buffer;		/* Files raw contents */
 };
@@ -384,9 +394,9 @@ int put_buf2val(struct hive *hdesc, struct keyval *kv,
 		int vofs, char *path, int type, int exact );
 int put_dword(struct hive *hdesc, int vofs, char *path, int exact, int dword);
 void export_key(struct hive *hdesc, int nkofs, char *name, char *filename, char *prefix);
-void closeHive(struct hive *hdesc);
-int writeHive(struct hive *hdesc);
-struct hive *openHive(char *filename, int mode);
+void close_hive(struct hive *hdesc);
+int write_hive(struct hive *hdesc);
+struct hive *open_hive(char *filename, int mode);
 
 struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type);
 int del_allvalues(struct hive *hdesc, int nkofs);

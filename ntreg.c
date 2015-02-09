@@ -2277,10 +2277,10 @@ int de_escape(char *s, int wide)
 /* ================================================================ */
 /* Hive control (load/save/close) etc */
 
-void closeHive(struct hive *hdesc)
+void close_hive(struct hive *hdesc)
 {
   if (hdesc->state & HMODE_OPEN) {
-    close(hdesc->filedesc);
+    fclose(hdesc->fp);
   }
   free(hdesc->filename);
   free(hdesc->buffer);
@@ -2309,38 +2309,38 @@ int32_t calc_regfsum(struct hive *hdesc)
 
 
 /* Write the hive back to disk (only if dirty & not readonly) */
-int writeHive(struct hive *hdesc)
+int write_hive(struct hive *hdesc)
 {
   int len;
   struct regf_header *hdr;
 
   if (hdesc->state & HMODE_RO) {
-	  LOG("writeHive: Hive is read-only, cannot write\n");
+	  LOG("write_hive: Hive is read-only, cannot write\n");
 	  return 0;
   }
   if ( !(hdesc->state & HMODE_DIRTY)) {
-	  LOG("writeHive: Hive is not dirty. Not writing.\n");
+	  LOG("write_hive: Hive is not dirty. Not writing.\n");
 	  return 0;
   }
 
   if ( !(hdesc->state & HMODE_OPEN)) { /* File has been closed */
-    if (!(hdesc->filedesc = open(hdesc->filename,O_RDWR))) {
-      LOG("writeHive: open failed: %s: %s\n",strerror(errno), hdesc->filename);
+    if (!(hdesc->fp = fopen(hdesc->filename, "r+"))) {
+      LOG("write_hive: open failed: %s: %s\n",strerror(errno), hdesc->filename);
       return 1;
     }
     hdesc->state |= HMODE_OPEN;
   }  
   /* Seek back to beginning of file (in case it's already open) */
-  lseek(hdesc->filedesc, 0, SEEK_SET);
+  fseek(hdesc->fp, 0L, SEEK_SET);
 
   /* compute new checksum */
 
   hdr = (struct regf_header *) hdesc->buffer;
   hdr->checksum = calc_regfsum(hdesc);
 
-  len = write(hdesc->filedesc, hdesc->buffer, hdesc->size);
+  len = fwrite(hdesc->buffer, 1, hdesc->size, hdesc->fp);
   if (len != hdesc->size) {
-    LOG("writeHive: write failed: %s: %s\n", strerror(errno), hdesc->filename);
+    LOG("write_hive: write failed: %s: %s\n", strerror(errno), hdesc->filename);
     return 1;
   }
 
@@ -2348,21 +2348,21 @@ int writeHive(struct hive *hdesc)
   return 0;
 }
 
-struct hive *openHive(char *filename, int mode)
+struct hive *open_hive(char *filename, int mode)
 {
   struct hive *hdesc;
-  int fmode,r,vofs;
+  int r,vofs;
+  char fmode[] = "r+";
   struct stat sbuf;
   uint32_t pofs;
   int32_t checksum;
-  int rt;
   struct hbin_page *p = NULL;
   struct regf_header *hdr;
   struct nk_key *nk;
   struct ri_key *rikey;
 
   if (!filename || !*filename) {
-	  LOG("openHive: Null or empty filename given\n");
+	  LOG("open_hive: Null or empty filename given\n");
 	  return NULL;
   }
 
@@ -2373,32 +2373,25 @@ struct hive *openHive(char *filename, int mode)
   hdesc->size = 0;
   hdesc->buffer = NULL;
 
-  if ( (mode & HMODE_RO) ) {
-    fmode = O_RDONLY;
-  } else {
-    fmode = O_RDWR;
+  /* Disable writing if read-only mode requested */
+  if (mode & HMODE_RO) fmode[1] = '\0';
+
+  if (stat(hdesc->filename, &sbuf)) {
+    LOG("open_hive: cannot stat hive %s\n", hdesc->filename);
+    return NULL;
   }
 
-  /* Some non-unix platforms may need this. Thanks to Dan Schmidt */
-#ifdef O_BINARY
-  fmode |= O_BINARY;
-#endif
-
-  hdesc->filedesc = open(hdesc->filename,fmode);
-  if (hdesc->filedesc < 0) {
-    LOG("openHive: failed: %s: %s; trying read-only\n",strerror(errno),hdesc->filename);
-    fmode = O_RDONLY;
+  hdesc->fp = fopen(hdesc->filename, fmode);
+  if (hdesc->fp == NULL) {
+    LOG("open_hive: failed: %s: %s; trying read-only\n",strerror(errno),hdesc->filename);
+    fmode[1] = '\0';
     mode |= HMODE_RO;
-    hdesc->filedesc = open(hdesc->filename,fmode);
-    if (hdesc->filedesc < 0) {
-      LOG("openHive: read-only failed: %s: %s\n",strerror(errno),hdesc->filename);
-      closeHive(hdesc);
+    hdesc->fp = fopen(hdesc->filename, fmode);
+    if (hdesc->fp == NULL) {
+      LOG("open_hive: read-only failed: %s: %s\n",strerror(errno),hdesc->filename);
+      close_hive(hdesc);
       return NULL;
     }
-  }
-  if ( fstat(hdesc->filedesc,&sbuf) ) {
-    LOG("openHive: cannot stat hive %s\n", hdesc->filename);
-    return NULL;
   }
 
   hdesc->size = sbuf.st_size;
@@ -2406,22 +2399,13 @@ struct hive *openHive(char *filename, int mode)
 
   /* Read the whole file */
 
-  ALLOC(hdesc->buffer,1,hdesc->size);
+  ALLOC(hdesc->buffer, 1, hdesc->size);
 
-  rt = 0;
-  do {  /* On some platforms read may not block, and read in chunks. handle that */
-    r = read(hdesc->filedesc, hdesc->buffer + rt, hdesc->size - rt);
-    rt += r;
-  } while ( !errno && (rt < hdesc->size) );
-
-  if (errno) { 
-    LOG("openHive: read failed: %s: %s\n",strerror(errno), hdesc->filename);
-    closeHive(hdesc);
-    return NULL;
-  }
-  if (rt < hdesc->size) {
-    LOG("openHive: error: read %d bytes (expected %d) \n", r, hdesc->size);
-    closeHive(hdesc);
+  errno = 0;
+  r = fread(hdesc->buffer, hdesc->size, 1, hdesc->fp);
+  if (!r) {
+    LOG("open_hive: read failed: %s: %s\n", strerror(errno), hdesc->filename);
+    close_hive(hdesc);
     return NULL;
   }
 
@@ -2432,13 +2416,13 @@ struct hive *openHive(char *filename, int mode)
 
    hdr = (struct regf_header *)hdesc->buffer;
    if (hdr->id != 0x66676572) {
-     LOG("openHive: not a registry file: %s\n",filename);
+     LOG("open_hive: not a registry file: %s\n",filename);
      return hdesc;
    }
 
    checksum = calc_regfsum(hdesc);
    if (checksum != hdr->checksum) {
-     LOG("openHive: header checksum mismatch: calc %08x, hdr %08x\n", checksum, hdr->checksum);
+     LOG("open_hive: header checksum mismatch: calc %08x, hdr %08x\n", checksum, hdr->checksum);
    }
 
    hdesc->rootofs = hdr->ofs_rootkey + 0x1000;
@@ -2461,7 +2445,7 @@ struct hive *openHive(char *filename, int mode)
      }
 
    } else {
-     LOG("openHive: Root key is not a key (not of type 'nk')\n");
+     LOG("open_hive: Root key is not a key (not of type 'nk')\n");
    }
 
    while (pofs < hdr->filesize + 0x1000) {   /* Loop through hbins until end according to regf header */
@@ -2472,7 +2456,7 @@ struct hive *openHive(char *filename, int mode)
      hdesc->pages++;
 
      if (p->ofs_next == 0) {
-       LOG("openHive: Corrupt file: zero-size page at %x\n", pofs);
+       LOG("open_hive: Corrupt file: zero-size page at %x\n", pofs);
        return hdesc;
      }
 
