@@ -372,7 +372,7 @@ int parse_block(struct hive *hdesc, int vofs);
 int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex_data *sptr);
 int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr);
 int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen);
-int trav_path(struct hive *hdesc, int vofs, char *path, int type);
+int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type);
 int get_val_type(struct hive *hdesc, int vofs, char *path, int exact);
 int set_val_type(struct hive *hdesc, int vofs, char *path, int exact, int type);
 int get_val_len(struct hive *hdesc, int vofs, char *path, int exact);

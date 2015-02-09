@@ -485,7 +485,8 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
 
 int free_block(struct hive *hdesc, int blk)
 {
-  int pofs,vofs,seglen,prev,next,nextsz,prevsz,size;
+  int pofs,vofs,seglen,next,nextsz,prevsz,size;
+  int prev = 0;
   struct hbin_page *p;
 
   if (hdesc->state & HMODE_NOALLOC) {
@@ -818,7 +819,9 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
  * returns index into table or -1 if err
  */
 
-static int vlist_find(struct hive *hdesc, int vlistofs, int numval, const char *name, int type)
+static int vlist_find(const struct hive * const restrict hdesc,
+		int vlistofs, int numval,
+		const char * const restrict name, int type)
 {
   struct vk_key *vkkey;
   int i, vkofs, len;
@@ -855,7 +858,7 @@ static int vlist_find(struct hive *hdesc, int vlistofs, int numval, const char *
  * return: offset to nk or vk (or NULL if not found)
  */
 
-int trav_path(struct hive *hdesc, int vofs, char *path, int type)
+int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type)
 {
   struct nk_key *key, *newnkkey;
   struct lf_key *lfkey;
@@ -863,10 +866,12 @@ int trav_path(struct hive *hdesc, int vofs, char *path, int type)
   struct ri_key *rikey;
 
   int32_t *vlistkey;
-  int newnkofs, plen, i, lfofs, vlistofs, adjust, r, ricnt, subs;
+  int newnkofs, i, lfofs, vlistofs, r, ricnt, subs;
+  int plen = 0;
+  int adjust = 0;
   char *buf;
   char part[ABSPATHLEN+1];
-  char *partptr;
+  char *partptr = NULL;
 
   char *partw = NULL;
   int partw_len, part_len;
@@ -1835,14 +1840,15 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 int del_key(struct hive *hdesc, int nkofs, char *name)
 {
 
-  int slot = 0, newlfofs = 0, oldlfofs = 0, o, n, onkofs,  delnkofs;
+  int slot = 0, newlfofs = 0, oldlfofs = 0, o, n, onkofs;
+  int delnkofs = 0;
   int oldliofs = 0, no_keys = 0, newriofs = 0;
   int namlen;
   int rimax, riofs, rislot;
   struct ri_key *ri, *newri = NULL;
   struct lf_key *newlf = NULL, *oldlf = NULL;
   struct li_key *newli = NULL, *oldli = NULL;
-  struct nk_key *key, *onk, *delnk;
+  struct nk_key *key, *onk, *delnk = NULL;
   char fullpath[501];
 
   key = (struct nk_key *)(hdesc->buffer + nkofs);
@@ -1996,7 +2002,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
   }
 
   /* Check for CLASS data, if so, deallocate it too */
-  if (delnk->len_classnam) {
+  if (delnk != NULL && delnk->len_classnam) {
     free_block(hdesc, delnk->ofs_classnam + 0x1000);
   }
   /* Now it's safe to zap the nk */
