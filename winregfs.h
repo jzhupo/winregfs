@@ -17,6 +17,7 @@
 #include <fuse.h>
 #endif
 
+#include "jody_hash.h"
 #include "config.h"
 
 /*** Check config.h settings for sanity ***/
@@ -56,19 +57,6 @@
 #else
 #define cache_stats(a,b)
 #endif /* NKOFS_CACHE_STATS */
-
-/* Set hash width from config file */
-#if HASH == 64
-typedef uint64_t hash_t;
-#elif HASH == 32
-typedef uint32_t hash_t;
-#elif HASH == 16
-typedef uint16_t hash_t;
-#elif HASH == 8
-typedef uint8_t hash_t;
-#else
-typedef uint_fast32_t hash_t;
-#endif
 
 /* Data structures */
 

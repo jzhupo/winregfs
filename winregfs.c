@@ -36,10 +36,14 @@
 #include <libgen.h>
 #include <pthread.h>
 #include "ntreg.h"
+#include "jody_hash.h"
 #include "winregfs.h"
 
 /* Avoid str[n]cmp calls by doing this simple check directly */
 #define PATH_IS_ROOT(a) (a[0] == '/' && a[1] == '\0')
+
+/* Use Jody's block hash algorithm for the cache */
+#define cache_hash(a) jody_block_hash((hash_t *)a, 0, strlen(a))
 
 /* Value type file extensions */
 const char *ext[REG_MAX + 1] = {
@@ -240,7 +244,7 @@ static void log_cache_stats(struct winregfs_data * const restrict wd)
 	LOG("cache: %d miss, %d hit (%3.2f%%); ",
 			wd->cache_miss, wd->cache_hit,
 			((wd->cache_hit * 100) / ((c>0) ? c : 1)));
-	LOG("hash: %d miss, %d hit (%3.2f%%), %d fail (%3.2f%%); ",
+	LOG("hash: %d miss, %d hit (%3.2f%%), %d fail (%3.2f%%)\n",
 			wd->hash_miss, wd->hash_hit,
 			((wd->hash_hit * 100) / ((h>0) ? h : 1)),
 			wd->hash_fail,
@@ -277,47 +281,6 @@ static inline void cache_stats(struct winregfs_data * const restrict wd,
 #endif /* NKOFS_CACHE_STATS */
 
 
-/* Hashes are faster! This is my ultra crummy hashing function.
- *
- * Word size is configurable in config.h as desired.
- *
- * I tried adding a bit rotate after XOR as well as with/without
- * the "tail" being hashed in. I also tried 8, 16, 32, and 64 bit
- * hash sizes. I also changed the cache item count on powers of 2 
- * from 1 all the way to 1024. The best total success stats at the
- * least number of cache items seems to be achieved with this combo:
- *
- * 32-bit hashes, XOR only, include the tail, 64 cache items
- *
- * More cache items didn't raise hit rates enough to care but raised
- * processing time sharply. Other hash size/method combos only seemed
- * to significantly increase false hash matches and slow things down.
- *
- * Now you know why cache_stats() exists  ;-)
- */
-static inline hash_t cache_hash(const char * const string)
-{
-	hash_t hash = 0x11;
-	const hash_t * input;
-	char *tail;
-	int count, l, s;
-
-	l = strlen(string);
-	s = l / sizeof(hash_t);
-	count = s;
-	input = (hash_t *)string;
-	for (; count > 0; count--) {
-		hash ^= (*input);
-		input++;
-	}
-	/* Handle the character tail that isn't in the hash yet */
-	tail = (char *)input - ((sizeof(hash_t) - (l - s * sizeof(hash_t))));
-	hash ^= (hash_t) *tail;
-	if (!hash) return ~hash;  /* Never return 0 */
-	else return hash;
-}
-
-
 /* Clear all cache elements (used when hive buffer is invalidated */
 void invalidate_cache(void)
 {
@@ -330,6 +293,7 @@ void invalidate_cache(void)
 	UNLOCK();
 	return;
 }
+
 
 /* Caching offset fetcher. If update_cache is nonzero, the
  * function call will refresh the cache entry for the path

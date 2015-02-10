@@ -2595,9 +2595,10 @@ struct hive *open_hive(char *filename, int mode)
    }
 
    checksum = calc_regfsum(hdesc);
-   if (checksum != hdr->checksum)
+   if (checksum != hdr->checksum) {
 	   LOG("open_hive: header checksum mismatch: calc %08x, hdr %08x\n",
 			   checksum, hdr->checksum);
+   }
 
    hdesc->rootofs = hdr->ofs_rootkey + 0x1000;
 

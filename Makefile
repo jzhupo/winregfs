@@ -20,8 +20,8 @@ sysconfdir=${prefix}/etc
 
 all: mount.winregfs fsck.winregfs manual
 
-mount.winregfs: winregfs.o ntreg.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o mount.winregfs winregfs.o ntreg.o $(FUSE_LIBS)
+mount.winregfs: winregfs.o ntreg.o jody_hash.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o mount.winregfs winregfs.o ntreg.o jody_hash.o $(FUSE_LIBS)
 
 fsck.winregfs: fsck_winregfs.o ntreg.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o fsck.winregfs fsck_winregfs.o ntreg.o
