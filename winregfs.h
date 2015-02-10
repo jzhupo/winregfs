@@ -70,6 +70,35 @@ typedef uint8_t hash_t;
 typedef uint_fast32_t hash_t;
 #endif
 
+/* Data structures */
+
+struct winregfs_data {
+	struct hive *hive;
+	int ro;
+#if ENABLE_LOGGING
+	FILE *log;
+#endif
+#if ENABLE_NKOFS_CACHE
+	/* Cache previous nkofs/path/key sets up to CACHE_ITEMS */
+	int cache_pos;
+	char *last_path[CACHE_ITEMS];
+	int last_nkofs[CACHE_ITEMS];
+	struct nk_key *last_key[CACHE_ITEMS];
+	hash_t hash[CACHE_ITEMS];
+# if ENABLE_NKOFS_CACHE_STATS
+	int delay;  /* Cache log throttling interval */
+	int cache_miss;
+	int cache_hit;
+	int hash_miss;
+	int hash_hit;
+	int hash_fail;
+# endif
+# if ENABLE_THREADED
+	pthread_mutex_t *lock;
+# endif
+#endif
+};
+
 /* Shortcut to pull winregfs_data structure into a function
    This MUST BE PLACED between variable declarations and code in ANY
    function that uses winregfs logging or data */
@@ -116,36 +145,6 @@ typedef uint_fast32_t hash_t;
 #define LOCK()
 #define UNLOCK()
 #endif
-
-
-/* Data structures */
-
-struct winregfs_data {
-	struct hive *hive;
-	int ro;
-#if ENABLE_LOGGING
-	FILE *log;
-#endif
-#if ENABLE_NKOFS_CACHE
-	/* Cache previous nkofs/path/key sets up to CACHE_ITEMS */
-	int cache_pos;
-	char *last_path[CACHE_ITEMS];
-	int last_nkofs[CACHE_ITEMS];
-	struct nk_key *last_key[CACHE_ITEMS];
-	hash_t hash[CACHE_ITEMS];
-# if ENABLE_NKOFS_CACHE_STATS
-	int delay;  /* Cache log throttling interval */
-	int cache_miss;
-	int cache_hit;
-	int hash_miss;
-	int hash_hit;
-	int hash_fail;
-# endif
-# if ENABLE_THREADED
-	pthread_mutex_t *lock;
-# endif
-#endif
-};
 
 void invalidate_cache(void);
 

@@ -39,7 +39,8 @@
 /* hbin page size. hbins are minimum this, and always multiple of this */
 #define HBIN_PAGESIZE 0x1000
 /* Hive filesize seems to always be multiple of this */
-#define REGF_FILEDIVISOR 0x40000
+//#define REGF_FILEDIVISOR 0x40000
+#define REGF_FILEDIVISOR 0x1000
 
 /* Larger than this, and values seems split into several blocks */
 #define VAL_DIRECT_LIMIT 0x3fd0
@@ -323,14 +324,8 @@ struct keyval {
 #define HTYPE_SOFTWARE	4
 
 
-/* Dirty page linked list elements
- * Caution: pages are 4KB block counts, not addresses or bytes!
- */
-struct dirtypage {
-	unsigned int page;
-	struct dirtypage *next;
-};
-
+/* Maximum number of dirty pages before forced commit */
+#define MAX_DIRTY 16
 
 /* Hive definition, allocated by open_hive(), dealloc by close_hive()
  * contains state data, must be passed in all functions
@@ -348,8 +343,8 @@ struct hive {
   int  rootofs;		/* Offset of root-node */
   int  lastbin;		/* Offset to last HBIN */
   int  endofs;		/* Offset of first non HBIN page, we can expand from here */
-  int  page_count;	/* winregfs: number of 4K data pages */
-  struct dirtypage *dp;	/* winregfs: dirty page list head */
+  int  dirty[MAX_DIRTY];/* Dirty page list */
+  int  dirty_entries;	/* Number of dirty pages */
   int16_t nkindextype;	/* Subkey-indextype the root key uses */
   char *buffer;		/* Files raw contents */
 };
@@ -361,14 +356,12 @@ struct hive {
 #define CREATE(result, type, number)\
     { \
         if (!((result) = (type *) calloc ((number), sizeof(type)))) { \
-            LOG("malloc failure"); \
             abort(); \
        } \
     }
 #define ALLOC(result, size, number)\
     { \
         if (!((result) = (void *) calloc ((number), (size)))) { \
-            LOG("malloc failure"); \
             abort(); \
        } \
     }

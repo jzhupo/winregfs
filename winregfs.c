@@ -12,10 +12,6 @@
  *
  * TODO:
  *
- * * Modify ntreg.c to track and write only changed pages
- *   - Right now write_hive() writes the ENTIRE hive which is
- *     wasteful. Track 4KB pages and write only chagned ones.
- *
  * * Fix 8 KiB file write limit issue (may really be in ntreg.c)
  *   - For now an error is issued on attempts to write >8192 bytes
  *     since there are extremely few values that contain this much
@@ -470,8 +466,7 @@ static int winregfs_access(const char * const restrict path, int mode)
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("access: no offset: %s\n", keypath);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 
 	if (key->no_subkeys) {
@@ -500,15 +495,13 @@ static int winregfs_access(const char * const restrict path, int mode)
 				} else {
 					DLOG("access: exec not allowed: ex_v: nkofs %x vkofs %x size %d c %d\n",
 							nkofs, vex.vkoffs, vex.size, count);
-					errno = EACCES;
-					return -1;
+					return -EACCES;
 				}
 			}
 		}
 	}
 	LOG("access: not found: %s\n", path);
-	errno = ENOENT;
-	return -1;
+	return -ENOENT;
 }
 
 
@@ -933,8 +926,7 @@ static int winregfs_write(const char * const restrict path,
 
 	if (wd->ro) {
 		LOG("write: read-only filesystem\n");
-		errno = EROFS;
-		return -1;
+		return -EROFS;
 	}
 
 	sanitize_path(path, keypath, node);
@@ -1153,8 +1145,7 @@ static int winregfs_write(const char * const restrict path,
 
 	if (write_hive(wd->hive)) {
 		LOG("write: error writing changes to hive\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 
 	return size;
@@ -1176,22 +1167,19 @@ static int winregfs_mknod(const char * const restrict path,
 
 	if (wd->ro) {
 		LOG("mknod: read-only filesystem\n");
-		errno = EROFS;
-		return -1;
+		return -EROFS;
 	}
 
 	/* There are quite a few errors to watch out for */
 	/* FUSE already handles the "already exists" case */
 	if (!(mode & S_IFREG)) {
 		LOG("mknod: special files are not allowed\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 
 	if (PATH_IS_ROOT(path)) {
 		LOG("mknod: no path specified\n");
-		errno = EEXIST;
-		return -1;
+		return -EEXIST;
 	}
 
 	sanitize_path(path, keypath, node);
@@ -1199,26 +1187,22 @@ static int winregfs_mknod(const char * const restrict path,
 	ktype = process_ext(node);
 	if (ktype < 0) {
 		LOG("mknod: bad extension: %s\n", path);
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("mknod: no offset: %s\n", keypath);
-		errno = ENOSPC;
-		return -1;
+		return -ENOSPC;
 	}
 
 	if (!add_value(wd->hive, nkofs, node, ktype)) {
 		LOG("mknod: error creating value: %s\n", path);
-		errno = ENOSPC;
-		return -1;
+		return -ENOSPC;
 	}
 	if (write_hive(wd->hive)) {
 		LOG("mknod: error writing changes to hive\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 #if ENABLE_NKOFS_CACHE
 	get_path_nkofs(wd, keypath, &key, 1);
@@ -1241,8 +1225,7 @@ static int winregfs_unlink(const char * const restrict path)
 
 	if (wd->ro) {
 		LOG("unlink: read-only filesystem\n");
-		errno = EROFS;
-		return -1;
+		return -EROFS;
 	}
 
 	sanitize_path(path, keypath, node);
@@ -1251,19 +1234,16 @@ static int winregfs_unlink(const char * const restrict path)
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("unlink: no offset: %s\n", keypath);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 
 	if (del_value(wd->hive, nkofs, node)) {
 		LOG("unlink: cannot delete: %s\n", path);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 	if (write_hive(wd->hive)) {
 		LOG("unlink: error writing changes to hive\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 #if ENABLE_NKOFS_CACHE
 	get_path_nkofs(wd, keypath, &key, 1);
@@ -1287,8 +1267,7 @@ static int winregfs_mkdir(const char * const restrict path,
 
 	if (wd->ro) {
 		LOG("mkdir: read-only filesystem\n");
-		errno = EROFS;
-		return -1;
+		return -EROFS;
 	}
 
 	sanitize_path(path, keypath, node);
@@ -1296,19 +1275,16 @@ static int winregfs_mkdir(const char * const restrict path,
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("mkdir: no offset: %s\n", keypath);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 
 	if (add_key(wd->hive, nkofs, node) == NULL) {
 		LOG("mkdir: cannot add key: %s\n", path);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 	if (write_hive(wd->hive)) {
 		LOG("mkdir: error writing changes to hive\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 #if ENABLE_NKOFS_CACHE
 	get_path_nkofs(wd, keypath, &key, 1);
@@ -1331,8 +1307,7 @@ static int winregfs_rmdir(const char * const restrict path)
 
 	if (wd->ro) {
 		LOG("rmdir: read-only filesystem\n");
-		errno = EROFS;
-		return -1;
+		return -EROFS;
 	}
 
 	sanitize_path(path, keypath, node);
@@ -1340,19 +1315,16 @@ static int winregfs_rmdir(const char * const restrict path)
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
 	if (!nkofs) {
 		LOG("rmdir: no offset: %s\n", keypath);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 
 	if (del_key(wd->hive, nkofs, node)) {
 		LOG("rmdir: cannot delete key: %s\n", path);
-		errno = ENOENT;
-		return -1;
+		return -ENOENT;
 	}
 	if (write_hive(wd->hive)) {
 		LOG("rmdir: error writing changes to hive\n");
-		errno = EPERM;
-		return -1;
+		return -EPERM;
 	}
 #if ENABLE_NKOFS_CACHE
 	get_path_nkofs(wd, keypath, &key, 1);

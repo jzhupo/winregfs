@@ -24,7 +24,7 @@ mount.winregfs: winregfs.o ntreg.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o mount.winregfs winregfs.o ntreg.o $(FUSE_LIBS)
 
 fsck.winregfs: fsck_winregfs.o ntreg.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(BUILD_CFLAGS) -o fsck.winregfs fsck_winregfs.o ntreg.o
+	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o fsck.winregfs fsck_winregfs.o ntreg.o
 
 manual:
 	gzip -9 < mount.winregfs.8 > mount.winregfs.8.gz
