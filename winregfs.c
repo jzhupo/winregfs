@@ -10,17 +10,6 @@
  *
  * Licensed under GNU GPL v2. See LICENSE and README for details.
  *
- * TODO:
- *
- * * Fix 8 KiB file write limit issue (may really be in ntreg.c)
- *   - For now an error is issued on attempts to write >8192 bytes
- *     since there are extremely few values that contain this much
- *     data; the XP compatibility shim cache is pretty much the
- *     only value of such a size (all others are <6000 bytes)
- *
- * * Allow arbitrary value types using a hexadecimal extension
- *   (used in SAM and some MS Click-to-Run registry keys)
- *
  */
 
 #include <stdio.h>
