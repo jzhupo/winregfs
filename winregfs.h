@@ -97,30 +97,34 @@ struct winregfs_data {
    We check wd for non-NULL before logging since wd may be unallocated
    during startup before fuse_main() */
 #if ENABLE_LOGGING
-#define LOG(...) if (wd) { \
+# define LOG_IS_USED 1
+# define LOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
 		  } else printf(__VA_ARGS__);
-#define LOAD_WD_LOGONLY() struct winregfs_data *wd; \
+# define LOAD_WD_LOGONLY() struct winregfs_data *wd; \
 		  wd = fuse_get_context()->private_data;
 #else
-#define LOAD_WD_LOGONLY()
+# define LOAD_WD_LOGONLY()
 # if ENABLE_DEBUG_PRINTF
-# define LOG(...) printf(__VA_ARGS__);
+#  define LOG_IS_USED 1
+#  define LOG(...) printf(__VA_ARGS__)
 # else
-# define LOG(...)
+#  define LOG(...)
 # endif
 #endif
 
 /* Use DLOG for places where logging may be high-volume */
 #if ENABLE_DEBUG_LOGGING
-#define DLOG(...) if (wd) { \
+# define LOG_IS_USED 1
+# define DLOG(...) if (wd) { \
 			fprintf(wd->log, __VA_ARGS__); fflush(wd->log); \
 		  } else printf(__VA_ARGS__);
 #else
 # if ENABLE_DEBUG_PRINTF
-# define DLOG(...) printf(__VA_ARGS__);
+#  define LOG_IS_USED 1
+#  define DLOG(...) printf(__VA_ARGS__);
 # else
-# define DLOG(...)
+#  define DLOG(...)
 # endif
 #endif
 

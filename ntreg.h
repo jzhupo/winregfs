@@ -372,7 +372,8 @@ void cheap_uni2ascii(char *src, char *dest, int l);
 void cheap_ascii2uni(char *src, char *dest, int l);
 
 int parse_block(struct hive *hdesc, int vofs);
-int ex_next_n(struct hive *hdesc, int nkofs, int *count, int *countri, struct ex_data *sptr);
+int ex_next_n(const struct hive * const hdesc, int nkofs, int * const restrict count,
+		int * const restrict countri, struct ex_data * const restrict sptr);
 int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr);
 int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen);
 int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type);

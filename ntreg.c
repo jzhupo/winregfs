@@ -129,14 +129,16 @@ static int strn_casecmp(const char *s1, const char *s2, size_t n)
 }
 
 
-static char *str_dup(const char *str)
+static inline char *str_dup(const char * const restrict str)
 {
     char *str_new;
+    int len;
 
     if (!str) return 0;
 
-    CREATE( str_new, char, strlen(str) + 1 );
-    strcpy( str_new, str );
+    len = strlen(str) + 1;
+    str_new = (char *)malloc(len);
+    strncpy(str_new, str, len);
     return str_new;
 }
 
@@ -145,27 +147,30 @@ static char *str_dup(const char *str)
  * Uses length only, does not check for nulls
  */
 
-static char *mem_str(const char *str, int len)
+static inline char *mem_str(const char * const restrict str, int len)
 {
     char *str_new;
 
-    if (!str)
-        return 0 ;
+    if (!str) return NULL;
 
-    CREATE( str_new, char, len + 1 );    
-    memcpy( str_new, str, len);
-    *(str_new+len) = 0;
+    str_new = (char *)malloc(len + 1);
+    if (!str_new) abort();
+    memcpy(str_new, str, len);
+    *(str_new + len) = 0;
     return str_new;
 }
 
 /* Get INTEGER from memory. This is probably low-endian specific? */
+/* This is totally unnecessary on i386/x86_64, so macro it out! */
+#define get_int32(a) *(int32_t *)(a)
+#if 0
 static inline int get_int32(char *array)
 {
 	return ((array[0]&0xff) + ((array[1]<<8)&0xff00) +
 		   ((array[2]<<16)&0xff0000) +
 		   ((array[3]<<24)&0xff000000));
 }
-
+#endif
 
 /* Quick and dirty UNICODE to std. ascii */
 void cheap_uni2ascii(char *src, char *dest, int l)
@@ -702,8 +707,10 @@ int free_block(struct hive *hdesc, int blk)
  * returns: -1 = error. 0 = end of key. 1 = more subkeys to scan
  * NOTE: caller must free the name-buffer (struct ex_data *name)
  */
-int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
-		int *countri, struct ex_data * const sptr)
+int ex_next_n(const struct hive * const hdesc, int nkofs,
+		int * const restrict count,
+		int * const restrict countri,
+		struct ex_data * const restrict sptr)
 {
   struct nk_key *key, *newnkkey;
   int newnkofs;
@@ -714,22 +721,14 @@ int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
   LOAD_WD_LOGONLY();
 
   if (!nkofs) return -1;
+  if (!sptr) return -1;
   key = (struct nk_key *)(hdesc->buffer + nkofs);
-  if (key->id != 0x6b6e) {
-    LOG("ex_next_n: error: Not a 'nk' node at 0x%0x\n",nkofs);
-    return -1;
-  }
+  if (key->id != 0x6b6e) goto error_not_nk;
 
   lfkey = (struct lf_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
   rikey = (struct ri_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
-  if (hdesc->size < ((intptr_t)lfkey - (intptr_t)hdesc->buffer)) {
-    LOG("ex_next_n: error: 'lf' key pointer beyond end of file");
-    return -1;
-  }
-  if (hdesc->size < ((intptr_t)rikey - (intptr_t)hdesc->buffer)) {
-    LOG("ex_next_n: error: 'ri' key pointer beyond end of file");
-    return -1;
-  }
+  if (hdesc->size < ((intptr_t)lfkey - (intptr_t)hdesc->buffer)) goto error_lf_eof;
+  if (hdesc->size < ((intptr_t)rikey - (intptr_t)hdesc->buffer)) goto error_ri_eof;
 
   if (rikey->id == 0x6972) {   /* Is it extended 'ri'-block? */
     if (*countri < 0 || *countri >= rikey->no_lis) { /* End of ri's? */
@@ -737,19 +736,13 @@ int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
     }
     /* Get the li of lf-struct that's current based on countri */
     likey = (struct li_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
-    if (hdesc->size < ((intptr_t)likey - (intptr_t)hdesc->buffer)) {
-      LOG("ex_next_n: error: 'li' key pointer beyond end of file");
-      return -1;
-    }
+    if (hdesc->size < ((intptr_t)likey - (intptr_t)hdesc->buffer)) goto error_li_eof;
     if (likey->id == 0x696c) {
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
     } else {
       lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
       newnkofs = lfkey->h.hash[*count].ofs_nk + 0x1000;
-      if (hdesc->size < newnkofs) {
-        LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
-        return 0;
-      }
+      if (hdesc->size < newnkofs) goto error_nk_eof;
     }
 
     /* Check if current li/lf is exhausted */
@@ -758,9 +751,7 @@ int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
       (*count) = -1;  /* Reset li traverse counter for next round, not used later here */
     }
   } else { /* Plain handler */
-    if (key->no_subkeys <= 0 || *count >= key->no_subkeys) {
-      return 0;
-    }
+    if (key->no_subkeys <= 0 || *count >= key->no_subkeys) return 0;
     if (lfkey->id == 0x696c) {   /* Is it 3.x 'li' instead? */
       likey = (struct li_key *)(hdesc->buffer + key->ofs_lf + 0x1004);
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
@@ -769,30 +760,44 @@ int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
     }
   }
 
-  if (hdesc->size < newnkofs) {
-    LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
-    return 0;
-  }
+  if (hdesc->size < newnkofs) goto error_nk_eof;
   sptr->nkoffs = newnkofs;
   newnkkey = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
   sptr->nk = newnkkey;
 
-  if (newnkkey->id != 0x6b6e) {
-    LOG("ex_next_n: error: not 'nk' node at 0x%0x\n",newnkofs);
-    return -1;
-  } else {
+  if (newnkkey->id != 0x6b6e) goto error_not_nk2;
+  else {
     if (newnkkey->len_name <= 0) {
       LOG("ex_next_n: nk at 0x%0x has no name\n",newnkofs);
     } else if (newnkkey->type & 0x20) {
-      sptr->name =  mem_str(newnkkey->keyname,newnkkey->len_name);
+      sptr->name =  mem_str(newnkkey->keyname, newnkkey->len_name);
     } else {
       sptr->name = string_regw2prog(newnkkey->keyname, newnkkey->len_name);
     }
-  } /* if */
+  }
 
   (*count)++;
   return 1;
   /*  return( *count <= key->no_subkeys); */
+
+error_not_nk:
+  LOG("ex_next_n: error: Not a 'nk' node at 0x%0x\n", nkofs);
+  return -1;
+error_not_nk2:
+  LOG("ex_next_n: error: Not a 'nk' node at 0x%0x\n", newnkofs);
+  return -1;
+error_lf_eof:
+  LOG("ex_next_n: error: 'lf' key pointer beyond end of file");
+  return -1;
+error_ri_eof:
+  LOG("ex_next_n: error: 'ri' key pointer beyond end of file");
+  return -1;
+error_li_eof:
+  LOG("ex_next_n: error: 'li' key pointer beyond end of file");
+  return -1;
+error_nk_eof:
+  LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
+  return -1;
 }
 
 /* "directory scan" for VALUES, return next name/pointer of a value on each call
@@ -803,9 +808,11 @@ int ex_next_n(struct hive * const hdesc, int nkofs, int *count,
  * returns: -1 = error. 0 = end of key. 1 = more values to scan
  * NOTE: caller must free the name-buffer (struct vex_data *name)
  */
-int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
+int ex_next_v(struct hive * const hdesc, int nkofs,
+		int * const restrict count,
+		struct vex_data * const restrict sptr)
 {
-  struct nk_key *key /* , *newnkkey */ ;
+  struct nk_key *key;
   int32_t vkofs, vlistofs;
   int32_t *vlistkey;
   struct vk_key *vkkey;
@@ -813,6 +820,7 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
   LOAD_WD_LOGONLY();
 
   if (!nkofs) goto error_nkofs_null;
+  if (!sptr) goto error_sptr_null;
   if ((nkofs + sizeof(struct nk_key)) > hdesc->size) goto error_nk_eof;
 
   key = (struct nk_key *)(hdesc->buffer + nkofs);
@@ -837,7 +845,6 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 
   if (vkkey->len_name >0) {
     if (vkkey->flag & 1) {
-
       sptr->name = mem_str(vkkey->keyname, vkkey->len_name);
     } else {
       sptr->name = string_regw2prog(vkkey->keyname, vkkey->len_name);
@@ -861,6 +868,9 @@ int ex_next_v(struct hive *hdesc, int nkofs, int *count, struct vex_data *sptr)
 
 error_nkofs_null:
   LOG("ex_next_v: nkofs is NULL\n");
+  return -1;
+error_sptr_null:
+  LOG("ex_next_v: sptr is NULL\n");
   return -1;
 error_nk_eof:
   LOG("ex_next_v: 'nk' offset beyond end of file\n");
@@ -1421,7 +1431,10 @@ int free_val_data(struct hive *hdesc, int vkofs)
 {
   struct vk_key *vkkey;
   struct db_key *db;
-  int len,i,blockofs,blocksize,parts,list;
+  int len,i,blockofs,parts,list;
+#if LOG_IS_USED
+  int blocksize;
+#endif
 
   LOAD_WD_LOGONLY();
 
@@ -1444,8 +1457,10 @@ int free_val_data(struct hive *hdesc, int vkofs)
 
       for (i = 0; i < parts; i++) {
 	blockofs = get_int32(hdesc->buffer + list + (i << 2)) + 0x1000;
+#if LOG_IS_USED
 	blocksize = -get_int32(hdesc->buffer + blockofs);
 	LOG("free_val_data: Freeing long block %d: offset %x, size %x (%d)\n",i, blockofs, blocksize, blocksize);
+#endif
 	free_block(hdesc, blockofs);		
       }
 
@@ -2368,7 +2383,7 @@ char *string_regw2prog(void *string, int len)
         else
             out_len += 3;
     }
-    CREATE(cstring,char,out_len+2);  /* winregfs mod: ensure extra padding for \n\0 */
+    CREATE(cstring, char, out_len+2);  /* winregfs mod: ensure extra padding for \n\0 */
 
     for(i = 0, k = 0; i < len; i += 2)
     {
@@ -2469,10 +2484,10 @@ void close_hive(struct hive *hdesc)
  * returns checksum value, 32 bit int
  */
 
-int32_t calc_regfsum(struct hive *hdesc)
+static inline int32_t calc_regfsum(struct hive * const hdesc)
 {
   int32_t checksum = 0;
-  struct regf_header *hdr;
+  struct regf_header * restrict hdr;
   int i;
 
   hdr = (struct regf_header *) hdesc->buffer;
@@ -2538,7 +2553,7 @@ struct hive *open_hive(char *filename, int mode)
 	  return NULL;
   }
 
-  CREATE(hdesc,struct hive,1);
+  CREATE(hdesc, struct hive, 1);
 
   hdesc->filename = str_dup(filename);
   hdesc->state = 0;

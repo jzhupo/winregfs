@@ -230,7 +230,8 @@ static void log_cache_stats(struct winregfs_data * const restrict wd)
 	wd->delay = 100;
 	c = wd->cache_miss + wd->cache_hit;
 	h = wd->hash_miss + wd->hash_hit;
-	LOG("cache: %d miss, %d hit (%3.2f%%); ",
+	LOG("cache: at pos %d, %d miss, %d hit (%3.2f%%); ",
+			wd->cache_pos,
 			wd->cache_miss, wd->cache_hit,
 			((wd->cache_hit * 100) / ((c>0) ? c : 1)));
 	LOG("hash: %d miss, %d hit (%3.2f%%), %d fail (%3.2f%%)\n",
@@ -518,6 +519,7 @@ static int winregfs_getattr(const char * const restrict path,
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
+			free(vex.name);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
@@ -529,7 +531,6 @@ static int winregfs_getattr(const char * const restrict path,
 					LOG("getattr: wildcard found for %s\n", path);
 					goto getattr_wildcard;
 				} else {
-					free(vex.name);
 					continue;
 				}
 			}
@@ -572,7 +573,6 @@ getattr_wildcard:
 				DLOG("getattr: blocking file %s\n", path);
 				return 0;
 			}
-			free(vex.name);
 		}
 	} else DLOG("getattr: no values for key: %p\n", (void *)key);
 	LOG("getattr: not found: %s\n", path);
@@ -628,18 +628,16 @@ static int winregfs_readdir(const char * const restrict path,
 				strncpy(filename, "@.sz", 5);
 				DLOG("readdir: v_filler: %s\n", filename);
 				filler(buf, filename, NULL, 0);
-				free(vex.name);
 			} else {
 				if (!add_val_ext(filename, &vex)) {
-					free(vex.name);
 					escape_fwdslash(filename);
 					DLOG("readdir: v_filler: %s\n", filename);
 					filler(buf, filename, NULL, 0);
 				} else {
-					free(vex.name);
 					LOG("readdir: error reading %s/%s\n", path, filename);
 				}
 			}
+			free(vex.name);
 		}
 	}
 	return 0;
@@ -750,10 +748,7 @@ static int winregfs_read(const char * const restrict path,
 	sanitize_path(path, keypath, node);
 
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
-	if (!nkofs) {
-		LOG("read: get_path_nkofs failed: %s\n", keypath);
-		return -ENOENT;
-	}
+	if (!nkofs) goto error_nkofs;
 
 	/* Extract type information, remove extension from name */
 	if (process_ext(node) < 0) {
@@ -766,29 +761,17 @@ static int winregfs_read(const char * const restrict path,
 				if (!strncasecmp(node, filename, ABSPATHLEN)) goto read_wildcard;
 			}
 		}
-		LOG("read: invalid type extension: %s\n", path);
-		return -EINVAL;
+		goto error_invalid_ext;
 	}
 read_wildcard:
 	type = get_val_type(wd->hive, nkofs, node, TPF_VK_EXACT);
-	if (type == -1) {
-		LOG("read: No such value '%s'\n", node);
-		return -EINVAL;
-	}
+	if (type == -1) goto error_no_value;
 
 	len = get_val_len(wd->hive, nkofs, node, TPF_VK_EXACT);
-	if (len < 0) {
-		if (*node == '\0') strncpy(node, "@", 2);
-		LOG("read: Value not readable: '%s'\n", node);
-		return -EINVAL;
-	}
+	if (len < 0) goto error_read_value;
 
 	kv = get_val2buf(wd->hive, NULL, nkofs, node, 0, TPF_VK_EXACT);
-	if (!kv) {
-		if (*node == '\0') strncpy(node, "@", 2);
-		LOG("read: Can't read value data for '%s'\n", node);
-		return -EINVAL;
-	}
+	if (!kv) goto error_read_value;
 	data = (void *)(kv->data);
 
 	switch (type) {
@@ -829,6 +812,21 @@ read_wildcard:
 	if (used_string) free(string);
 	free(kv->data); free(kv);
 	return size;
+
+error_nkofs:
+	LOG("read: get_path_nkofs failed: %s\n", keypath);
+	return -ENOENT;
+error_invalid_ext:
+	LOG("read: invalid type extension: %s\n", path);
+	return -EINVAL;
+error_read_value:
+	if (*node == '\0') strncpy(node, "@", 2);
+	LOG("read: Can't read value '%s'\n", node);
+	return -EINVAL;
+error_no_value:
+	if (*node == '\0') strncpy(node, "@", 2);
+	LOG("read: No such value '%s'\n", node);
+	return -EINVAL;
 }
 
 
