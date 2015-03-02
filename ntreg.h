@@ -279,7 +279,7 @@ struct nk_key {
 struct ex_data {
   int nkoffs;
   struct nk_key *nk;
-  char *name;
+  char name[ABSPATHLEN];
 };
 
 struct vex_data {
@@ -288,7 +288,7 @@ struct vex_data {
   int type;       /* Value type REG_??? */
   int size;       /* Values size (normalized, inline accounted for) */
   int32_t val;        /* Actual value itself if type==REG_DWORD */
-  char *name;
+  char name[ABSPATHLEN];
 };
 
 struct keyval {
@@ -401,7 +401,6 @@ int del_key(struct hive *hdesc, int nkofs, char *name);
 int add_bin(struct hive *hdesc, int size);
 
 int de_escape(char *s, int wide);
-
-char *string_regw2prog(void *string, int len);
+void string_regw2prog(char * const restrict cstring, const void * const restrict string, int len);
 
 #endif

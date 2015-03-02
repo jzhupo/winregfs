@@ -55,7 +55,7 @@
 #define HASH_MISS 3
 #define HASH_FAIL 4
 #else
-#define cache_stats(a,b)
+#define nk_cache_stats(a,b)
 #endif /* NKOFS_CACHE_STATS */
 
 /* Data structures */
@@ -68,18 +68,18 @@ struct winregfs_data {
 #endif
 #if ENABLE_NKOFS_CACHE
 	/* Cache previous nkofs/path/key sets up to CACHE_ITEMS */
-	int cache_pos;
-	char *last_path[CACHE_ITEMS];
-	int last_nkofs[CACHE_ITEMS];
-	struct nk_key *last_key[CACHE_ITEMS];
-	hash_t hash[CACHE_ITEMS];
+	int nk_cache_pos;
+	char *nk_last_path[CACHE_ITEMS];
+	int nk_last_nkofs[CACHE_ITEMS];
+	struct nk_key *nk_last_key[CACHE_ITEMS];
+	hash_t nk_hash[CACHE_ITEMS];
 # if ENABLE_NKOFS_CACHE_STATS
 	int delay;  /* Cache log throttling interval */
-	int cache_miss;
-	int cache_hit;
-	int hash_miss;
-	int hash_hit;
-	int hash_fail;
+	int nk_cache_miss;
+	int nk_cache_hit;
+	int nk_hash_miss;
+	int nk_hash_hit;
+	int nk_hash_fail;
 # endif
 # if ENABLE_THREADED
 	pthread_mutex_t *lock;

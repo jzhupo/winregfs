@@ -48,7 +48,39 @@
 #define DLOG(...) printf(__VA_ARGS__)
 #endif
 
-#define ZEROFILL      1  /* Fill blocks with zeroes when allocating and deallocating */
+/* Optimized non-terminated string copy
+ *
+ * Inline code that accepts a non-terminated string and a length and
+ * copies the string, null-terminating it. Attempts to use word-size
+ * operations when possible.
+ */
+static inline void str_memcpy(char *dest, const char *src, int len)
+{
+	unsigned long *ldest = (unsigned long *)dest;
+	const unsigned long *lsrc = (unsigned long *)src;
+	int remain = len;
+
+	/* Alignment check - don't use word-sized copy for unaligned objects */
+	if ((uintptr_t)dest & (sizeof(unsigned long) - 1)) goto bytewise_copy;
+	if ((uintptr_t)src & (sizeof(unsigned long) - 1)) goto bytewise_copy;
+
+	/* Word copy */
+	while (remain > sizeof(unsigned long)) {
+		*ldest = *lsrc;
+		ldest++; lsrc++;
+		remain -= sizeof(unsigned long);
+	}
+
+bytewise_copy:
+	dest = (char *)ldest;
+	src = (char *)lsrc;
+	while (remain > 0) {
+		*dest = *src;
+		dest++; src++;
+		remain--;
+	}
+	*dest = '\0';
+}
 
 const char *val_types[REG_MAX+1] = {
   "REG_NONE", "REG_SZ", "REG_EXPAND_SZ", "REG_BINARY", "REG_DWORD",       /* 0 - 4 */
@@ -142,23 +174,6 @@ static inline char *str_dup(const char * const restrict str)
     return str_new;
 }
 
-
-/* Copy non-terminated string to buffer we allocate and null terminate it
- * Uses length only, does not check for nulls
- */
-
-static inline char *mem_str(const char * const restrict str, int len)
-{
-    char *str_new;
-
-    if (!str) return NULL;
-
-    str_new = (char *)malloc(len + 1);
-    if (!str_new) abort();
-    memcpy(str_new, str, len);
-    *(str_new + len) = 0;
-    return str_new;
-}
 
 /* Get INTEGER from memory. This is probably low-endian specific? */
 /* This is totally unnecessary on i386/x86_64, so macro it out! */
@@ -573,10 +588,6 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
       hdesc->unusetot -= 4;
 
     }
-    /* Clear the block data, makes it easier to debug */
-#if ZEROFILL
-    memset((void *)(hdesc->buffer+blk+4), 0, size-4);
-#endif
 
     return blk;
   } else {
@@ -597,7 +608,7 @@ int alloc_block(struct hive *hdesc, int ofs, int size)
  * Will CHANGE HIVE IF SUCCESSFUL (changes linkage)
  */
 
-int free_block(struct hive *hdesc, int blk)
+int free_block(struct hive * const hdesc, int blk)
 {
   int pofs,vofs,seglen,next,nextsz,prevsz,size;
   int prev = 0;
@@ -618,7 +629,7 @@ int free_block(struct hive *hdesc, int blk)
   size = -size;
 
   /* So, we must find start of the block BEFORE us */
-  pofs = find_page_start(hdesc,blk);
+  pofs = find_page_start(hdesc, blk);
   if (!pofs) {
 	  LOG("free_block: find_page_start failed: offset %d\n", blk);
 	  return 0;
@@ -666,10 +677,6 @@ int free_block(struct hive *hdesc, int blk)
   }
 
   /* Now free the block (possibly with ajusted size as above) */
-#if ZEROFILL
-   memset((void *)(hdesc->buffer+blk), 0, size);
-#endif
-
   *(int *)((hdesc->buffer)+blk) = (int)size;
   hdesc->usetot -= size;
   hdesc->unusetot -= size;  /* FIXME !?!? */
@@ -683,9 +690,6 @@ int free_block(struct hive *hdesc, int blk)
     hdesc->unusetot += prevsz;
     prevsz += size;
     /* And swallow current.. */
-#if ZEROFILL
-      bzero( (void *)(hdesc->buffer+prev), prevsz);
-#endif
     *(int *)((hdesc->buffer)+prev) = (int)prevsz;
     if (mark_pages_dirty(hdesc, prev, prev)) return -1;
     hdesc->useblk--;
@@ -770,9 +774,9 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
     if (newnkkey->len_name <= 0) {
       LOG("ex_next_n: nk at 0x%0x has no name\n",newnkofs);
     } else if (newnkkey->type & 0x20) {
-      sptr->name =  mem_str(newnkkey->keyname, newnkkey->len_name);
+      str_memcpy(sptr->name, newnkkey->keyname, newnkkey->len_name);
     } else {
-      sptr->name = string_regw2prog(newnkkey->keyname, newnkkey->len_name);
+      string_regw2prog(sptr->name, newnkkey->keyname, newnkkey->len_name);
     }
   }
 
@@ -840,17 +844,17 @@ int ex_next_v(struct hive * const hdesc, int nkofs,
 
   sptr->vk = vkkey;
   sptr->vkoffs = vkofs;
-  sptr->name = 0;
+  sptr->name[0] = '\0';
   sptr->size = (vkkey->len_data & 0x7fffffff);
 
   if (vkkey->len_name >0) {
     if (vkkey->flag & 1) {
-      sptr->name = mem_str(vkkey->keyname, vkkey->len_name);
+      str_memcpy(sptr->name, vkkey->keyname, vkkey->len_name);
     } else {
-      sptr->name = string_regw2prog(vkkey->keyname, vkkey->len_name);
+      string_regw2prog(sptr->name, vkkey->keyname, vkkey->len_name);
     }
   } else {
-    sptr->name = str_dup("");
+    strncpy(sptr->name, "", 2);
   }
 
   sptr->type = vkkey->val_type;
@@ -902,7 +906,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
   /* int newnkofs; */
   struct nk_key *key;
   char tmp[ABSPATHLEN+1];
-  char *keyname;
+  char keyname[ABSPATHLEN];
   int len_name;
 
   LOAD_WD_LOGONLY();
@@ -921,19 +925,18 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
 
   strncpy(tmp, path, ABSPATHLEN-1);
 
-  if (key->type & 0x20)
-    keyname = mem_str(key->keyname, key->len_name);
-  else
-    keyname = string_regw2prog(key->keyname, key->len_name);
+  if (key->type & 0x20) {
+    str_memcpy(keyname, key->keyname, key->len_name);
+  } else {
+    string_regw2prog(keyname, key->keyname, key->len_name);
+  }
   len_name = strlen(keyname);
-  if ( (strlen(path) + len_name) >= maxlen-6) {
-    free(keyname);
+  if ((strlen(path) + len_name) >= maxlen-6) {
     snprintf(path,maxlen,"(...)%s",tmp);
     return strlen(path);   /* Stop trace when string exhausted */
   }
   *path = '\\';
   memcpy(path + 1, keyname, len_name);
-  free(keyname);
   strncpy(path + len_name + 1, tmp, maxlen - 6 - len_name);
   return get_abs_path(hdesc, key->ofs_parent + 0x1004, path, maxlen); /* go back one more */
 }
@@ -2363,14 +2366,14 @@ error_null_kv:
  * It works very primitive by just taking every second char.
  * The caller must free the resulting string, that was allocated with malloc.
  *
+ * cstring: the destination string
  * string:  string where every second char is \0
  * len:     length of the string
  * return:  the converted string as char*
  */
-char *string_regw2prog(void *string, int len)
+void string_regw2prog(char * const restrict cstring, const void * const restrict string, int len)
 {
     int i, k;
-    char *cstring;
     int out_len = 0;
 
     for(i = 0; i < len; i += 2)
@@ -2383,7 +2386,6 @@ char *string_regw2prog(void *string, int len)
         else
             out_len += 3;
     }
-    CREATE(cstring, char, out_len+2);  /* winregfs mod: ensure extra padding for \n\0 */
 
     for(i = 0, k = 0; i < len; i += 2)
     {
@@ -2400,7 +2402,7 @@ char *string_regw2prog(void *string, int len)
         }
     }
     cstring[out_len] = '\0';
-    return cstring;
+    return;
 }
 
 

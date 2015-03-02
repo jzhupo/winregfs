@@ -107,7 +107,6 @@ static int process_key(struct fsck_stat * const restrict stats,
 			strncpy(filename, keypath, ABSPATHLEN);
 			if(strncmp(keypath, "\\", 3)) strncat(filename, "\\", ABSPATHLEN);
 			strncat(filename, ex.name, ABSPATHLEN);
-			free(ex.name);
 			error_count += process_key(stats, filename, depth, verbose);
 		}
 		if (i < 0) {
@@ -130,7 +129,6 @@ static int process_key(struct fsck_stat * const restrict stats,
 			strncat(filename, "\\", ABSPATHLEN);
 			if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
 			else strncat(filename, vex.name, ABSPATHLEN);
-			free(vex.name);
 		}
 		if (i < 0) {
 			if (verbose) printf("\rValue read failure: %s\n", keypath);

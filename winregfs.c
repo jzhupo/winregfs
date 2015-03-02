@@ -221,51 +221,51 @@ static int unescape_fwdslash(char *path)
 #if ENABLE_NKOFS_CACHE_STATS
 # if ENABLE_LOGGING
 /* Log current cache stats every 100th cache event */
-static void log_cache_stats(struct winregfs_data * const restrict wd)
+static void log_nk_cache_stats(struct winregfs_data * const restrict wd)
 {
 	float c, h;
 
 	/* c, h are checked to prevent divide by zero errors */
 	if (wd->delay--) return;
 	wd->delay = 100;
-	c = wd->cache_miss + wd->cache_hit;
-	h = wd->hash_miss + wd->hash_hit;
+	c = wd->nk_cache_miss + wd->nk_cache_hit;
+	h = wd->nk_hash_miss + wd->nk_hash_hit;
 	LOG("cache: at pos %d, %d miss, %d hit (%3.2f%%); ",
-			wd->cache_pos,
-			wd->cache_miss, wd->cache_hit,
-			((wd->cache_hit * 100) / ((c>0) ? c : 1)));
+			wd->nk_cache_pos,
+			wd->nk_cache_miss, wd->nk_cache_hit,
+			((wd->nk_cache_hit * 100) / ((c>0) ? c : 1)));
 	LOG("hash: %d miss, %d hit (%3.2f%%), %d fail (%3.2f%%)\n",
-			wd->hash_miss, wd->hash_hit,
-			((wd->hash_hit * 100) / ((h>0) ? h : 1)),
-			wd->hash_fail,
-			((wd->hash_fail * 100) / ((h>0) ? h : 1)));
+			wd->nk_hash_miss, wd->nk_hash_hit,
+			((wd->nk_hash_hit * 100) / ((h>0) ? h : 1)),
+			wd->nk_hash_fail,
+			((wd->nk_hash_fail * 100) / ((h>0) ? h : 1)));
 }
 # endif
 
 
 /* Collect information on NK offset cache success/failure */
-static inline void cache_stats(struct winregfs_data * const restrict wd,
+static inline void nk_cache_stats(struct winregfs_data * const restrict wd,
 		char hit)
 {
 	switch (hit) {
 	case CACHE_HIT:
-		wd->cache_hit++;
+		wd->nk_cache_hit++;
 		break;
 	case CACHE_MISS:
-		wd->cache_miss++;
+		wd->nk_cache_miss++;
 		break;
 	case HASH_HIT:
-		wd->hash_hit++;
+		wd->nk_hash_hit++;
 		break;
 	case HASH_MISS:
-		wd->hash_miss++;
+		wd->nk_hash_miss++;
 		break;
 	case HASH_FAIL:
-		wd->hash_fail++;
+		wd->nk_hash_fail++;
 		break;
 	}
 # if ENABLE_LOGGING
-	log_cache_stats(wd);
+	log_nk_cache_stats(wd);
 # endif
 }
 #endif /* NKOFS_CACHE_STATS */
@@ -279,7 +279,7 @@ void invalidate_cache(void)
 
 	DLOG("winregfs cache invalidated\n");
 	LOCK();
-	for(i=0; i < CACHE_ITEMS; i++) wd->hash[i] = '\0';
+	for(i=0; i < CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
 	UNLOCK();
 	return;
 }
@@ -306,16 +306,16 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 
 	/* Work backwards in the hash cache ring until we come back
 	 * where we started or encounter a zeroed (non-existent) hash */
-	i = wd->cache_pos;
+	i = wd->nk_cache_pos;
 	while (1) {
-		if (!wd->hash[i]) break;  /* 0 = end of recorded hashes */
-		if (wd->hash[i] == hash) {
-			cache_stats(wd, HASH_HIT);
-			if (!strncasecmp(wd->last_path[i], keypath, ABSPATHLEN)) {
+		if (!wd->nk_hash[i]) break;  /* 0 = end of recorded hashes */
+		if (wd->nk_hash[i] == hash) {
+			nk_cache_stats(wd, HASH_HIT);
+			if (!strncasecmp(wd->nk_last_path[i], keypath, ABSPATHLEN)) {
 				if (!update_cache) {
-					nkofs = wd->last_nkofs[i];
-					*key = wd->last_key[i];
-					cache_stats(wd, CACHE_HIT);
+					nkofs = wd->nk_last_nkofs[i];
+					*key = wd->nk_last_key[i];
+					nk_cache_stats(wd, CACHE_HIT);
 					UNLOCK();
 					return nkofs;
 				} else {
@@ -325,23 +325,23 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 						return 0;
 					}
 					nkofs += 4;
-					wd->last_key[i] = (struct nk_key *)(wd->hive->buffer + nkofs);
-					wd->last_nkofs[i] = nkofs;
+					wd->nk_last_key[i] = (struct nk_key *)(wd->hive->buffer + nkofs);
+					wd->nk_last_nkofs[i] = nkofs;
 					UNLOCK();
 					return nkofs;
 				}
-			} else cache_stats(wd, HASH_FAIL);
-		} else cache_stats(wd, HASH_MISS);
+			} else nk_cache_stats(wd, HASH_FAIL);
+		} else nk_cache_stats(wd, HASH_MISS);
 		if (update_cache) return 0;
 		/* If we've hit item 0, return the cache ring position to the end of the ring */
 		if (!i) i = CACHE_ITEMS;
 		i--;
-		if (i == wd->cache_pos) break;
+		if (i == wd->nk_cache_pos) break;
 	}
 
 	UNLOCK();
 
-	cache_stats(wd, CACHE_MISS);
+	nk_cache_stats(wd, CACHE_MISS);
 #endif  /* NKOFS_CACHE */
 
 	/* Cached path didn't match (or cache disabled), traverse and get offset */
@@ -358,11 +358,11 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 	/* Increment cache ring position, place new cache item */
 	LOCK();
 
-	if (++wd->cache_pos >= CACHE_ITEMS) wd->cache_pos = 0;
-	strncpy(wd->last_path[wd->cache_pos], keypath, ABSPATHLEN);
-	wd->last_nkofs[wd->cache_pos] = nkofs;
-	wd->last_key[wd->cache_pos] = *key;
-	wd->hash[wd->cache_pos] = cache_hash(keypath);
+	if (++wd->nk_cache_pos >= CACHE_ITEMS) wd->nk_cache_pos = 0;
+	strncpy(wd->nk_last_path[wd->nk_cache_pos], keypath, ABSPATHLEN);
+	wd->nk_last_nkofs[wd->nk_cache_pos] = nkofs;
+	wd->nk_last_key[wd->nk_cache_pos] = *key;
+	wd->nk_hash[wd->nk_cache_pos] = cache_hash(keypath);
 
 	UNLOCK();
 #endif
@@ -429,9 +429,8 @@ static int winregfs_access(const char * const restrict path, int mode)
 				DLOG("access: ex_n: %p size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
 				DLOG("access: directory OK: %s\n", node);
-				free(ex.name);
 				return 0;
-			} else free(ex.name);
+			}
 		}
 	}
 
@@ -440,7 +439,6 @@ static int winregfs_access(const char * const restrict path, int mode)
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			free(vex.name);
 			if (!strncasecmp(node, filename, ABSPATHLEN)) {
 				if (!(mode & X_OK)) {
 					DLOG("access: OK: ex_v: nkofs %x vkofs %x size %d c %d\n",
@@ -507,9 +505,8 @@ static int winregfs_getattr(const char * const restrict path,
 				stbuf->st_size = ex.nk->no_subkeys;
 				DLOG("getattr: ex_n: %s size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
-				free(ex.name);
 				return 0;
-			} else free(ex.name);
+			}
 		}
 	}
 
@@ -519,7 +516,6 @@ static int winregfs_getattr(const char * const restrict path,
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			free(vex.name);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
@@ -614,7 +610,6 @@ static int winregfs_readdir(const char * const restrict path,
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			DLOG("readdir: n_filler: %s\n", ex.name);
 			strncpy(filename, ex.name, ABSPATHLEN);
-			free(ex.name);
 			escape_fwdslash(filename);
 			filler(buf, filename, NULL, 0);
 		}
@@ -637,7 +632,6 @@ static int winregfs_readdir(const char * const restrict path,
 					LOG("readdir: error reading %s/%s\n", path, filename);
 				}
 			}
-			free(vex.name);
 		}
 	}
 	return 0;
@@ -690,9 +684,8 @@ static int winregfs_open(const char * const restrict path,
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
 				LOG("open: Is a directory: %s\n", node);
-				free(ex.name);
 				return -EISDIR;
-			} else free(ex.name);
+			}
 		}
 	}
 
@@ -701,7 +694,6 @@ static int winregfs_open(const char * const restrict path,
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
 			else add_val_ext(filename, &vex);
-			free(vex.name);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
@@ -735,9 +727,8 @@ static int winregfs_read(const char * const restrict path,
 	void *data;
 	size_t len;
 	int i, type, count;
-	int used_string = 0;  /* 1 if string should be freed */
-	char *string = NULL;
-	char dqw[18];  /* DWORD/QWORD ASCII hex string */
+	char string[4096];
+	char *sptr = string;
 	struct keyval *kv = NULL;
 	struct vex_data vex;
 
@@ -757,7 +748,6 @@ static int winregfs_read(const char * const restrict path,
 			while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 				if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
 				else strncpy(filename, vex.name, ABSPATHLEN);
-				free(vex.name);
 				if (!strncasecmp(node, filename, ABSPATHLEN)) goto read_wildcard;
 			}
 		}
@@ -780,36 +770,32 @@ read_wildcard:
 	case REG_MULTI_SZ:
 		if (!len) break;
 		/* UTF-16 to ASCII, nulls to newlines */
-		string = string_regw2prog(data, len);
+		string_regw2prog(string, data, len);
 		for (i = 0; i < (len >> 1) - 1; i++) {
 			if (string[i] == 0) string[i] = '\n';
 			if (type == REG_SZ) break;
 		}
 		len = strlen(string) + 1;
 		string[len - 1] = '\n';
-		used_string = 1;
 		break;
 	case REG_QWORD:
-		len = bytes2hex(dqw, data, 8);
-		string = dqw;
+		len = bytes2hex(string, data, 8);
 		break;
 	case REG_DWORD:
-		len = bytes2hex(dqw, data, 4);
-		string = dqw;
+		len = bytes2hex(string, data, 4);
 		break;
 	default:
 		LOG("read: Unknown type %d, treating as REG_BINARY\n", type);
 	case REG_BINARY:
-		string = data;
+		sptr = data;
 		break;
 	}
 
 	if (offset < len) {
 		if (offset + size > len) size = len - offset;
-		memcpy(buf, string + offset, size);
+		memcpy(buf, sptr + offset, size);
 	} else size = 0;
 
-	if (used_string) free(string);
 	free(kv->data); free(kv);
 	return size;
 
@@ -866,7 +852,7 @@ static int winregfs_write(const char * const restrict path,
 	int i, type;
 	size_t newsize;
 	char *newbuf = NULL;
-	char * restrict string = NULL;
+	char string[4096];
 	uint64_t val;  /* DWORD/QWORD hex string value */
 	struct keyval * restrict kv = NULL;
 	struct keyval * restrict newkv = NULL;
@@ -875,124 +861,64 @@ static int winregfs_write(const char * const restrict path,
 
 	DLOG("write: %s (%d + %d)\n", path, (int)size, (int)offset);
 
-	if (wd->ro) {
-		LOG("write: read-only filesystem\n");
-		return -EROFS;
-	}
+	if (wd->ro) goto error_rofs;
 
 	sanitize_path(path, keypath, node);
 
 	/* Extract type information, remove extension from name */
 	type = process_ext(node);
-	if (type < 0) {
-		LOG("read: invalid type extension: %s\n", path);
-		return -EINVAL;
-	}
+	if (type < 0) goto error_invalid_type;
 
 	if (*node == '@') *node = '\0';
 
 	nkofs = get_path_nkofs(wd, keypath, &key, 0);
-	if (!nkofs) {
-		LOG("read: get_path_nkofs failed: %s\n", keypath);
-		return -ENOENT;
-	}
+	if (!nkofs) goto error_nkofs;
 
 	kv = get_val2buf(wd->hive, NULL, nkofs, node, type, TPF_VK_EXACT);
-	if (!kv) {
-		LOG("write: metadata missing for %s\n", path);
-		return -ENOENT;
-	}
+	if (!kv) goto error_metadata;
 
 	newsize = offset + size;
-	if(newsize > 8192 || kv->len > 8192) {
-		LOG("write: 8 KiB value size limit exceeded: %s\n", path);
-		free(kv->data); free(kv);
-		return -EFBIG;
-	}
+	if(newsize > 8192 || kv->len > 8192) goto error_8k_limit;
 
 	switch(type) {
 	case REG_DWORD:
 		if (offset != 0 && kv->len > newsize) newsize = kv->len;
-		if (offset > kv->len) {
-			LOG("write: attempt to write beyond end of file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (offset > kv->len) goto error_long_write;
 		i = find_nonhex(buf, 9);
-		if (i < 1) {
-			LOG("write: bad DWORD file format: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (i < 1) goto error_bad_dword;
 		i = convert_hex(buf, &val, i);
-		if (i == -1) {
-			LOG("write: bad DWORD file format: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (i == -1) goto error_bad_dword;
 
 		kv->len = 4;
 		*((uint32_t *)kv->data) = (uint32_t)val;
 		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
 
-		if (!i) {
-			LOG("write: error writing file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (!i) goto error_write;
 		break;
 
 	case REG_QWORD:
 		if (offset != 0 && kv->len > newsize) newsize = kv->len;
-		if (offset > kv->len) {
-			LOG("write: attempt to write beyond end of file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (offset > kv->len) goto error_long_write;
 		i = find_nonhex(buf, 17);
-		if (i < 1) {
-			LOG("write: bad QWORD file format: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (i < 1) goto error_bad_qword;
 		i = convert_hex(buf, &val, i);
-		if (i == -1) {
-			LOG("write: bad QWORD file format: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (i == -1) goto error_bad_qword;
 
 		kv->len = 8;
 		*((uint64_t *)kv->data) = val;
 		i = put_buf2val(wd->hive, kv, nkofs, node, type, TPF_VK_EXACT);
 
-		if (!i) {
-			LOG("write: error writing file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (!i) goto error_write;
 		break;
 
 	case REG_BINARY:
 		if (offset != 0 && kv->len > newsize) newsize = kv->len;
-		if (offset > kv->len) {
-			LOG("write: attempt to write beyond end of file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (offset > kv->len) goto error_long_write;
 		newkv = (struct keyval *)malloc(sizeof(struct keyval));
-		if (!newkv) {
-			LOG("write: failed to allocate memory\n");
-			free(kv->data); free(kv);
-			return -ENOMEM;
-		}
+		if (!newkv) goto error_oom;
 
 		ALLOC(newkv->data, 1, newsize);
-		if (!newkv->data) {
-			LOG("write: failed to allocate memory for buffer\n");
-			free(newkv); free(kv->data); free(kv);
-			return -ENOMEM;
-		}
+		if (!newkv->data) goto error_oom;
 
 		memcpy(newkv->data, kv->data, kv->len);
 		memcpy(((char *)newkv->data + offset), buf, size);
@@ -1000,10 +926,7 @@ static int winregfs_write(const char * const restrict path,
 		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
 		free(newkv->data); free(newkv); free(kv->data); free(kv);
 
-		if (!i) {
-			LOG("write: error writing file: %s\n", path);
-			return -EINVAL;
-		}
+		if (!i) goto error_write;
 		break;
 
 	case REG_SZ:
@@ -1011,42 +934,23 @@ static int winregfs_write(const char * const restrict path,
 	case REG_MULTI_SZ:
 		/* Handling offsets as well as loading existing data makes this complex */
 		if (offset != 0 && (kv->len >> 1) > newsize) newsize = kv->len >> 1;
-		if (offset > kv->len) {
-			LOG("write: attempt to write beyond end of file: %s\n", path);
-			free(kv->data); free(kv);
-			return -EINVAL;
-		}
+		if (offset > kv->len) goto error_long_write;
 		newbuf = (char *)malloc(sizeof(char) * (newsize + 1));
 
-		if (!newbuf) {
-			LOG("write: failed to allocate memory for buffer\n");
-			free(kv->data); free(kv);
-			return -ENOMEM;
-		}
+		if (!newbuf) goto error_oom;
 
 		/* Copy old message into buffer if offset is specified */
 		if (offset != 0) {
-			string = string_regw2prog(kv->data, kv->len);
-			if (!string) {
-				LOG("write: out of memory\n");
-				free(newbuf); free(kv->data); free(kv);
-				return -ENOMEM;
-			}
-
+			string_regw2prog(string, kv->data, kv->len);
 			for (i = 0; i < (kv->len >> 1); i++) {
 				if (string[i] == 0) string[i] = '\n';
 				if (type == REG_SZ) break;
 			}
 			memcpy(newbuf, string, kv->len >> 1);
-			free(string);
 		}
 
 		newkv = (struct keyval *)malloc(sizeof(struct keyval));
-		if (!newkv) {
-			LOG("write: out of memory\n");
-			free(newbuf); free(kv->data); free(kv);
-			return -ENOMEM;
-		}
+		if (!newkv) goto error_oom;
 
 		/* Extra byte for MULTI_SZ null termination */
 		ALLOC(newkv->data, 1, (newsize + 1) << 1);
@@ -1072,25 +976,16 @@ static int winregfs_write(const char * const restrict path,
 		cheap_ascii2uni(newbuf, (char *)newkv->data, newsize);
 		free(newbuf);
 		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
-		if(i != newkv->len) {
-			LOG("write: short write: %s (%d/%d)\n", path, i, (int)newkv->len);
-			free(newkv->data); free(newkv); free(kv->data); free(kv);
-			return -ENOSPC;
-		}
+		if(i != newkv->len) goto error_short_write;
 		free(newkv->data);
 		free(newkv);
 		free(kv->data);
 		free(kv);
 
-		if (!i) {
-			LOG("write: error writing file: %s\n", path);
-			return -EINVAL;
-		}
+		if (!i) goto error_write;
 		break;
 	default:
-		LOG("write: type %d not supported: %s\n", type, path);
-		free(kv->data); free(kv);
-		return -EINVAL;
+		goto error_type_not_sup;
 		break;
 	}
 
@@ -1100,6 +995,51 @@ static int winregfs_write(const char * const restrict path,
 	}
 
 	return size;
+
+error_rofs:
+	LOG("write: read-only filesystem\n");
+	return -EROFS;
+error_invalid_type:
+	LOG("read: invalid type extension: %s\n", path);
+	return -EINVAL;
+error_nkofs:
+	LOG("read: get_path_nkofs failed: %s\n", keypath);
+	return -ENOENT;
+error_metadata:
+	LOG("write: metadata missing for %s\n", path);
+	return -ENOENT;
+error_8k_limit:
+	LOG("write: 8 KiB value size limit exceeded: %s\n", path);
+	free(kv->data); free(kv);
+	return -EFBIG;
+error_long_write:
+	LOG("write: attempt to write beyond end of file: %s\n", path);
+	free(kv->data); free(kv);
+	return -EINVAL;
+error_bad_dword:
+	LOG("write: bad DWORD file format: %s\n", path);
+	free(kv->data); free(kv);
+	return -EINVAL;
+error_write:
+	LOG("write: error writing file: %s\n", path);
+	free(kv->data); free(kv);
+	return -EINVAL;
+error_bad_qword:
+	LOG("write: bad QWORD file format: %s\n", path);
+	free(kv->data); free(kv);
+	return -EINVAL;
+error_oom:
+	LOG("write: failed to allocate memory\n");
+	free(kv->data); free(kv);
+	return -ENOMEM;
+error_short_write:
+	LOG("write: short write: %s (%d/%d)\n", path, i, (int)newkv->len);
+	free(newkv->data); free(newkv); free(kv->data); free(kv);
+	return -ENOSPC;
+error_type_not_sup:
+	LOG("write: type %d not supported: %s\n", type, path);
+	free(kv->data); free(kv);
+	return -EINVAL;
 }
 
 
@@ -1415,25 +1355,25 @@ int main(int argc, char *argv[])
 #endif
 #if ENABLE_NKOFS_CACHE
 	/* malloc() and initialize cache pointers/data */
-	wd->last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * CACHE_ITEMS);
-	if (!wd->last_path[0]) goto oom;
+	wd->nk_last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * CACHE_ITEMS);
+	if (!wd->nk_last_path[0]) goto oom;
 	for (i=0; i < CACHE_ITEMS; i++) {
-		wd->last_path[i] = (wd->last_path[0] + (ABSPATHLEN * i));
-		*wd->last_path[i] = '\0';
-		wd->hash[i] = 0;
+		wd->nk_last_path[i] = (wd->nk_last_path[0] + (ABSPATHLEN * i));
+		*wd->nk_last_path[i] = '\0';
+		wd->nk_hash[i] = 0;
 	}
 # if ENABLE_THREADED
 	wd->lock = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
 	if (!wd->lock) goto oom;
 	pthread_mutex_init(wd->lock, NULL);
 # endif /* THREADED */
-	wd->cache_pos = CACHE_ITEMS - 1;
+	wd->nk_cache_pos = CACHE_ITEMS - 1;
 # if ENABLE_NKOFS_CACHE_STATS
-	wd->cache_miss = 0;
-	wd->cache_hit = 0;
-	wd->hash_miss = 0;
-	wd->hash_hit = 0;
-	wd->hash_fail = 0;
+	wd->nk_cache_miss = 0;
+	wd->nk_cache_hit = 0;
+	wd->nk_hash_miss = 0;
+	wd->nk_hash_hit = 0;
+	wd->nk_hash_fail = 0;
 	wd->delay = 1;
 # endif
 #endif /* NKOFS_CACHE */
