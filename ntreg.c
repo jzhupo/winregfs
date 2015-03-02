@@ -4,7 +4,7 @@
  *           iterate, add&delete keys and values, read stuff, change stuff etc
  *           no rename of keys or values yet..
  *           also contains some minor utility functions (string handling etc) for now
- * 
+ *
  *****
  *
  * NTREG - Window registry file reader / writer library
@@ -20,11 +20,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
  * See file LGPL.txt for the full license.
- * 
+ *
  * Modified for Windows Registry FUSE filesystem project "winregfs"
  * by Jody Bruchon <jody@jodybruchon.com> on 2014-04-16
  *
- */ 
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -155,8 +155,8 @@ static int strn_casecmp(const char *s1, const char *s2, size_t n)
     s1++;
     s2++;
   }
-  if ( (!*s1 && !*s2) || !n) return 0;
-  if ( !*s1 ) return -1;
+  if ((!*s1 && !*s2) || !n) return 0;
+  if (!*s1) return -1;
   return 1;
 }
 
@@ -374,7 +374,7 @@ int find_free_blk(struct hive * const hdesc, const int pofs, const int size)
     seglen = get_int32(hdesc->buffer + vofs);
     if (seglen == 0) {
       LOG("find_free_blk: Zero data block size; block at offset %0x\n",vofs);
-      if ( (vofs - pofs) == (p->ofs_next - 4) ) {
+      if ((vofs - pofs) == (p->ofs_next - 4)) {
 	LOG("find_free_blk: at exact end of hbin, do not care.\n");
 	return 0;
       }
@@ -454,7 +454,7 @@ int add_bin(struct hive * const hdesc, int size)
   /* We must allocate more buffer */
   if ((newbinofs + r) >= hdesc->size) {
     /* File normally multiple of 0x40000 bytes */
-    newsize = ((newbinofs + r) & ~(REGF_FILEDIVISOR - 1) ) + REGF_FILEDIVISOR;
+    newsize = ((newbinofs + r) & ~(REGF_FILEDIVISOR - 1)) + REGF_FILEDIVISOR;
 
     hdesc->buffer = realloc(hdesc->buffer, newsize);
     if (!hdesc->buffer) goto error_realloc;
@@ -640,7 +640,7 @@ int free_block(struct hive * const hdesc, int blk)
   prevsz = -32;
 
   if (vofs != blk) {  /* Block is not at start of page? */
-    while ((vofs - pofs) < (p->ofs_next - HBIN_ENDFILL) ) {
+    while ((vofs - pofs) < (p->ofs_next - HBIN_ENDFILL)) {
 
       seglen = get_int32(hdesc->buffer+vofs);
       if (seglen == 0) {
@@ -649,7 +649,7 @@ int free_block(struct hive * const hdesc, int blk)
       }
       if (seglen < 0) {
 	seglen = -seglen;
-      } 
+      }
       prev = vofs;
       vofs += seglen;
       if (vofs == blk) break;
@@ -666,10 +666,10 @@ int free_block(struct hive * const hdesc, int blk)
   next = blk + size;
 
   nextsz = 0;
-  if ((next - pofs) < (p->ofs_next - HBIN_ENDFILL) ) nextsz = get_int32(hdesc->buffer+next);
+  if ((next - pofs) < (p->ofs_next - HBIN_ENDFILL)) nextsz = get_int32(hdesc->buffer+next);
 
   /* Now check if next block is free, if so merge it with the one to be freed */
-  if ( nextsz > 0) {
+  if (nextsz > 0) {
     size += nextsz;   /* Swallow it in current block */
     hdesc->useblk--;
     hdesc->usetot -= 4;
@@ -739,12 +739,12 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
       return 0;
     }
     /* Get the li of lf-struct that's current based on countri */
-    likey = (struct li_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
+    likey = (struct li_key *)(hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004) ;
     if (hdesc->size < ((intptr_t)likey - (intptr_t)hdesc->buffer)) goto error_li_eof;
     if (likey->id == 0x696c) {
       newnkofs = likey->hash[*count].ofs_nk + 0x1000;
     } else {
-      lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004 ) ;
+      lfkey = (struct lf_key *)(hdesc->buffer + rikey->hash[*countri].ofs_li + 0x1004) ;
       newnkofs = lfkey->h.hash[*count].ofs_nk + 0x1000;
       if (hdesc->size < newnkofs) goto error_nk_eof;
     }
@@ -970,7 +970,7 @@ static int vlist_find(const struct hive * const restrict hdesc,
 
     if ((type & TPF_EXACT) && vkkey->len_name != len) continue;  /* Skip if exact match and not exact size */
 
-    if (vkkey->len_name >= len ) {                  /* Only check for names that are longer or equal than we seek */
+    if (vkkey->len_name >= len) {                  /* Only check for names that are longer or equal than we seek */
       if (!strncasecmp(name, vkkey->keyname, len)) {    /* Name match */  /* XXX: winregfs */
 	if (vkkey->len_name == len) return i;        /* Exact match always best, returns */
 	if (approx == -1) approx = i;                 /* Else remember first partial match */
@@ -1042,7 +1042,7 @@ int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type
     *partptr = '\0';
     if (!plen) return (vofs - 4);     /* Path has no length - we're there! */
 
-    adjust = (path[plen] == '\\' ) ? 1 : 0;
+    adjust = (path[plen] == '\\') ? 1 : 0;
 
     if ((plen == 1) && (*(path + 1) && *path == '.') && !(type & TPF_EXACT)) {     /* Handle '.' current dir */
       return trav_path(hdesc, vofs, path + plen + adjust, type);
@@ -1108,12 +1108,11 @@ int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type
 	} else {
 	  if (newnkkey->len_name <= 0) {
 	    LOG("trav_path: warning: no name\n");
-	  } else if ( 
-		     ((part_len <= newnkkey->len_name ) && !(type & TPF_EXACT)) ||
-		     ((part_len == newnkkey->len_name ) && (type & TPF_EXACT))
-		      ) {
+	  } else if (
+		     ((part_len <= newnkkey->len_name) && !(type & TPF_EXACT)) ||
+		     ((part_len == newnkkey->len_name) && (type & TPF_EXACT))) {
 	    /* Can't match if name is shorter than we look for */
-	    if (newnkkey->type & 0x20) 
+	    if (newnkkey->type & 0x20)
               cmp = strncasecmp(part,newnkkey->keyname,part_len);
             else
               cmp = memcmp(partw, newnkkey->keyname, partw_len);
@@ -1127,10 +1126,10 @@ int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type
       r++;
       if (ricnt && r < ricnt) {
 	newnkofs = rikey->hash[r].ofs_li;
-	likey = (struct li_key *)( hdesc->buffer + newnkofs + 0x1004 ) ;
+	likey = (struct li_key *)(hdesc->buffer + newnkofs + 0x1004) ;
 	subs = likey->no_keys;
 	if (likey->id != 0x696c) {  /* Bwah, not li anyway, XP uses lh usually which is actually smarter */
-	  lfkey = (struct lf_key *)( hdesc->buffer + rikey->hash[r].ofs_li + 0x1004 ) ;
+	  lfkey = (struct lf_key *)(hdesc->buffer + rikey->hash[r].ofs_li + 0x1004) ;
 	  likey = NULL;
 	}
       }
@@ -1299,7 +1298,7 @@ void *get_val_data(struct hive *hdesc, int vofs, char *path, int val_type, int e
 
   if (vkkey->len_data == 0x80000000 && (exact & TPF_VK_SHORT)) {  /* Special inline case (len = 0x80000000) */
     return &vkkey->val_type; /* Data (4 bytes?) in type field */
-  }    
+  }
 
   if (val_type && vkkey->val_type && (vkkey->val_type) != val_type) {
     LOG("get_val_data: not of correct type: %s\n",path);
@@ -1388,7 +1387,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
       point += copylen;
       restlen -= copylen;
     }
-  } else {    
+  } else {
     if (l && kr && keydataptr) memcpy(kr->data, keydataptr, l);
   }
   return kr;
@@ -1444,7 +1443,7 @@ int free_val_data(struct hive *hdesc, int vkofs)
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   len = vkkey->len_data;
 
-  if (!(len & 0x80000000)) {  /* Check for inline, if so, skip it, nothing to do */ 
+  if (!(len & 0x80000000)) {  /* Check for inline, if so, skip it, nothing to do */
 
     if (len > VAL_DIRECT_LIMIT) {       /* Where do the db indirects start? seems to be around 16k */
 
@@ -1464,7 +1463,7 @@ int free_val_data(struct hive *hdesc, int vkofs)
 	blocksize = -get_int32(hdesc->buffer + blockofs);
 	LOG("free_val_data: Freeing long block %d: offset %x, size %x (%d)\n",i, blockofs, blocksize, blocksize);
 #endif
-	free_block(hdesc, blockofs);		
+	free_block(hdesc, blockofs);
       }
 
       DLOG("free_val_data: Freeing indirect list at %x\n", list-4);
@@ -1472,7 +1471,7 @@ int free_val_data(struct hive *hdesc, int vkofs)
       DLOG("free_val_data: Freeing db structure at %x\n", vkkey->ofs_data + 0x1000);
     } /* Fall through to regular which deallocs data or db block ofs_data point to */
 
-    if (len) free_block(hdesc, vkkey->ofs_data + 0x1000);  
+    if (len) free_block(hdesc, vkkey->ofs_data + 0x1000);
 
   } /* inline check */
   vkkey->len_data = 0;
@@ -1529,7 +1528,7 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
       for (i = 0; i < parts; i++) {
 	blocksize = VAL_DIRECT_LIMIT;      /* Windows seem to alway allocate the whole block */
 	blockofs = alloc_block(hdesc, vkofs, blocksize);
-	LOG("alloc_val_data: block %d, blockofs %x\n",i,blockofs);	
+	LOG("alloc_val_data: block %d, blockofs %x\n",i,blockofs);
 	j = listofs + 4 + (i << 2);
 	ptr = (int *)(hdesc->buffer + j);
 	*ptr = blockofs - 0x1000;
@@ -1552,7 +1551,7 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs); /* alloc_block may move pointer, realloc() buf */
 
   /* Link in new datablock */
-  if ( !(size & 0x80000000)) vkkey->ofs_data = datablk - 0x1000;
+  if (!(size & 0x80000000)) vkkey->ofs_data = datablk - 0x1000;
   vkkey->len_data = size;
   if (mark_pages_dirty(hdesc, vkofs, vkofs)) goto error_dirty;
 
@@ -1689,7 +1688,7 @@ int del_vk(struct hive *hdesc, int vkofs)
     return 1;
   }
 
-  if ( !(vk->len_data & 0x80000000) && vk->ofs_data) {
+  if (!(vk->len_data & 0x80000000) && vk->ofs_data) {
     if(free_val_data(hdesc, vkofs) < 0) {
 	    LOG("del_vk: error freeing value data\n");
 	    return -1;
@@ -1839,12 +1838,12 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       slot = -1;
 
       if (oldli->id == 0x696c) {  /* li */
-	
+
 	free(newli);
 	ALLOC(newli, 8 + 4*oldli->no_keys + 4, 1);
 	newli->no_keys = oldli->no_keys;
 	newli->id = oldli->id;
-	
+
 	/* Now copy old, checking where to insert (alphabetically) */
 	for (o = 0, n = 0; o < oldli->no_keys; o++,n++) {
 	  onkofs = oldli->hash[o].ofs_nk;
@@ -1852,7 +1851,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	  if (slot == -1) {
 	    cmp = strn_casecmp(name, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
 	    if (!cmp) goto error_key_exists;
-	    if ( cmp < 0) {
+	    if (cmp < 0) {
 	      slot = o;
 	      rimax = rislot; /* Cause end of 'ri' search, too */
 	      n++;
@@ -1861,16 +1860,16 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	  newli->hash[n].ofs_nk = oldli->hash[o].ofs_nk;
 	}
 	if (slot == -1) slot = oldli->no_keys;
-	
+
       } else { /* lf or lh */
 
 	oldlf = (struct lf_key *)(hdesc->buffer + oldlfofs + 0x1004);
-	
+
 	free(newlf);
 	ALLOC(newlf, 8 + 8*oldlf->no_keys + 8, 1);
 	newlf->no_keys = oldlf->no_keys;
 	newlf->id = oldlf->id;
-	
+
 	/* Now copy old, checking where to insert (alphabetically) */
 	for (o = 0, n = 0; o < oldlf->no_keys; o++,n++) {
 	  onkofs = oldlf->h.hash[o].ofs_nk;
@@ -1879,7 +1878,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 
 	    cmp = strn_casecmp(name, onk->keyname, (namlen > onk->len_name) ? namlen : onk->len_name);
 	    if (!cmp) goto error_key_exists;
-	    if ( cmp < 0 ) {
+	    if (cmp < 0) {
 	      slot = o;
 	      rimax = rislot;  /* Cause end of 'ri' search, too */
 	      n++;
@@ -1893,7 +1892,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
 	}
 	if (slot == -1) slot = oldlf->no_keys;
       } /* li else check */
-    } while ( (rislot < rimax) && (rimax > 0));  /* 'ri' wrapper loop */
+    } while ((rislot < rimax) && (rimax > 0));  /* 'ri' wrapper loop */
 
   } else { /* Parent was empty, make new index block */
     ALLOC(newlf, 8 + 8, 1);
@@ -2131,13 +2130,13 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
   if (delnk->no_values || delnk->no_subkeys) goto error_not_empty;
 
   /* Allocate space for our new lf list and copy it into reg */
-  if ( no_keys && (newlf || newli) ) {
+  if (no_keys && (newlf || newli)) {
     newlfofs = alloc_block(hdesc, nkofs, 8 + (newlf ? 8 : 4) * no_keys);
 
     /* alloc_block may invalidate pointers if hive expanded. Recalculate this one.
      * Thanks to Jacky To for reporting it here, and suggesting a fix
      * (better would of course be for me to redesign stuff :)
-     */ 
+     */
     if (delnkofs) delnk = (struct nk_key *)(delnkofs + hdesc->buffer + 0x1004);
 
     if (!newlfofs) goto error_alloc_key;
@@ -2190,7 +2189,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	  if (n == rislot) o++;
 	  newri->hash[n].ofs_li = ri->hash[o].ofs_li;
 	}
-	newriofs = alloc_block(hdesc, nkofs, 8 + newri->no_lis*4 );
+	newriofs = alloc_block(hdesc, nkofs, 8 + newri->no_lis*4);
 	if (!newriofs) goto error_alloc_ri_index;
 	key = (struct nk_key *)(hdesc->buffer + nkofs);
 	oldli = (struct li_key *)(hdesc->buffer + oldliofs + 0x1004);
@@ -2205,7 +2204,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	key->ofs_lf = -1;
       }
     } else {
-      ri->hash[rislot].ofs_li = newlfofs - 0x1000; 
+      ri->hash[rislot].ofs_li = newlfofs - 0x1000;
     }
   } else {
     key->ofs_lf = newlfofs - 0x1000;
@@ -2263,7 +2262,7 @@ error_fill_block:
  */
 
 int put_buf2val(struct hive *hdesc, struct keyval *kv,
-		int vofs, char *path, int type, int exact )
+		int vofs, char *path, int type, int exact)
 {
   int l;
   void *keydataptr, *addr;
@@ -2442,8 +2441,8 @@ int de_escape(char *s, int wide)
   int dst = 0;
 
   if (wide) {
-    while ( *(s + src) || *(s + src +1)) {
-      if ( *(s + src) == '\\' && *(s + src + 1) == 0) src += 2; /* Skip over backslash */
+    while (*(s + src) || *(s + src +1)) {
+      if (*(s + src) == '\\' && *(s + src + 1) == 0) src += 2; /* Skip over backslash */
       *(s + dst) = *(s + src);
       *(s + dst + 1) = *(s + src + 1);
       dst += 2;
@@ -2453,8 +2452,8 @@ int de_escape(char *s, int wide)
     *(s + dst + 1) = 0;
     dst += 2;
   } else {
-    while ( *(s + src) ) {
-      if ( *(s + src) == '\\' ) src++;
+    while (*(s + src)) {
+      if (*(s + src) == '\\') src++;
       *(s + dst) = *(s + src);
       dst++;
       src++;

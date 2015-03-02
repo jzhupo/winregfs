@@ -38,4 +38,5 @@ Config.in
 core
 .gdb_history
 .gdbinit
+*.hiv
 
