@@ -1,11 +1,11 @@
 CC=gcc
-CFLAGS=-O3
+CFLAGS=-O2 -g
 #CFLAGS=-O2 -flto -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables
 #CFLAGS=-Og -g3
-BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe -Wall -pedantic
-LDFLAGS=-s
+BUILD_CFLAGS=-std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe -Wall -pedantic -fstrict-aliasing
+#LDFLAGS=-s
 #LDFLAGS=-flto -s -Wl,--gc-sections
-#LDFLAGS=
+LDFLAGS=
 FUSE_CFLAGS=$(shell pkg-config fuse --cflags)
 FUSE_LDFLAGS=$(shell pkg-config fuse --libs)
 FUSE_LIBS=-lfuse
@@ -18,13 +18,17 @@ datarootdir=${prefix}/share
 datadir=${datarootdir}
 sysconfdir=${prefix}/etc
 
+OBJS_LIB=ntreg.o jody_string.o
+OBJS_FSCK=fsck_winregfs.o $(OBJS_LIB)
+OBJS_MOUNT=winregfs.o jody_hash.o $(OBJS_LIB)
+
 all: mount.winregfs fsck.winregfs manual
 
-mount.winregfs: winregfs.o ntreg.o jody_hash.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o mount.winregfs winregfs.o ntreg.o jody_hash.o $(FUSE_LIBS)
+mount.winregfs: $(OBJS_MOUNT)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o mount.winregfs $(OBJS_MOUNT) $(FUSE_LIBS)
 
-fsck.winregfs: fsck_winregfs.o ntreg.o
-	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o fsck.winregfs fsck_winregfs.o ntreg.o
+fsck.winregfs: $(OBJS_FSCK)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(FUSE_CFLAGS) $(BUILD_CFLAGS) $(FUSE_LDFLAGS) -o fsck.winregfs $(OBJS_FSCK)
 
 manual:
 	gzip -9 < mount.winregfs.8 > mount.winregfs.8.gz

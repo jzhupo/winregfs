@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <libgen.h>
 #include "ntreg.h"
+#include "jody_string.h"
 #include "winregfs.h"
 
 #define UPDATE_INTERVAL 300
@@ -148,7 +149,7 @@ int main(int argc, char *argv[])
 	int error_count, warn_count, verbose = 0;
 	struct fsck_stat stats;
 
-	if (argc == 2 && !strncasecmp(argv[1], "-v", 2)) {
+	if (argc == 2 && !strcaseeq(argv[1], "-v")) {
 		fprintf(stderr, "Windows Registry Hive File Checker %s (%s)\n", VER, VERDATE);
 		return EXIT_SUCCESS;
 	}

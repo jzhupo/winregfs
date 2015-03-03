@@ -38,6 +38,7 @@
 #include <inttypes.h>
 #include <stdarg.h>
 
+#include "jody_string.h"
 #include "winregfs.h"
 #include "ntreg.h"
 
@@ -971,7 +972,7 @@ static int vlist_find(const struct hive * const restrict hdesc,
     if ((type & TPF_EXACT) && vkkey->len_name != len) continue;  /* Skip if exact match and not exact size */
 
     if (vkkey->len_name >= len) {                  /* Only check for names that are longer or equal than we seek */
-      if (!strncasecmp(name, vkkey->keyname, len)) {    /* Name match */  /* XXX: winregfs */
+      if (!strncaseeq(name, vkkey->keyname, len)) {    /* Name match */  /* XXX: winregfs */
 	if (vkkey->len_name == len) return i;        /* Exact match always best, returns */
 	if (approx == -1) approx = i;                 /* Else remember first partial match */
       }
@@ -1048,7 +1049,7 @@ int trav_path(struct hive * const hdesc, int vofs,
     if ((plen == 1) && (*(path + 1) && *path == '.') && !(type & TPF_EXACT)) {     /* Handle '.' current dir */
       return trav_path(hdesc, vofs, path + plen + adjust, type);
     }
-    if (!(type & TPF_EXACT) && (plen == 2) && !strncasecmp("..", path, 2)) { /* Get parent key */
+    if (!(type & TPF_EXACT) && (plen == 2) && !strcaseeq("..", path)) { /* Get parent key */
       newnkofs = key->ofs_parent + 0x1004;
       /* Return parent (or only root if at the root) */
       return trav_path(hdesc, (key->type == KEY_ROOT ? vofs : newnkofs), path + plen + adjust, type);
@@ -1114,7 +1115,7 @@ int trav_path(struct hive * const hdesc, int vofs,
 		     ((part_len == newnkkey->len_name) && (type & TPF_EXACT))) {
 	    /* Can't match if name is shorter than we look for */
 	    if (newnkkey->type & 0x20)
-              cmp = strncasecmp(part,newnkkey->keyname,part_len);
+              cmp = strncaseeq(part, newnkkey->keyname, part_len);
             else
               cmp = memcmp(partw, newnkkey->keyname, partw_len);
 	    if (!cmp) {
@@ -1600,7 +1601,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
     if(!del_value(hdesc, nkofs, name)) goto error_del_value;
   }
 
-  if (!strcmp(name,"@")) name = blank;
+  if (!streq(name, "@")) name = blank;
 
   if (nk->no_values) oldvlist = nk->ofs_vallist;
 
@@ -1720,7 +1721,7 @@ int del_value(struct hive *hdesc, int nkofs, char *name)
 	  LOG("del_value: Null or empty name given\n");
 	  return 1;
   }
-  if (!strcmp(name,"@")) name = blank;
+  if (!streq(name, "@")) name = blank;
   nk = (struct nk_key *)(hdesc->buffer + nkofs);
   if (nk->id != 0x6b6e) {
     LOG("del_value: Key pointer not to 'nk' node: %s\n", name);
@@ -2081,7 +2082,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
       for (o = 0, n = 0; o < oldli->no_keys; o++,n++) {
 	onkofs = oldli->hash[o].ofs_nk;
 	onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
-	if (slot == -1 && onk->len_name == namlen && !strncmp(name, onk->keyname, (onk->len_name > namlen) ? onk->len_name : namlen)) {
+	if (slot == -1 && onk->len_name == namlen && !strneq(name, onk->keyname, (onk->len_name > namlen) ? onk->len_name : namlen)) {
 	  slot = o;
 	  delnkofs = onkofs; delnk = onk;
 	  rimax = rislot;
@@ -2104,7 +2105,7 @@ int del_key(struct hive *hdesc, int nkofs, char *name)
 	onkofs = oldlf->h.hash[o].ofs_nk;
 	onk = (struct nk_key *)(onkofs + hdesc->buffer + 0x1004);
 
-	if (slot == -1 && (onk->len_name == namlen) && !strncmp(name, onk->keyname, onk->len_name)) {
+	if (slot == -1 && (onk->len_name == namlen) && !strneq(name, onk->keyname, onk->len_name)) {
 	  slot = o;
 	  delnkofs = onkofs; delnk = onk;
 	  rimax = rislot;

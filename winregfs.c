@@ -26,6 +26,7 @@
 #include <pthread.h>
 #include "ntreg.h"
 #include "jody_hash.h"
+#include "jody_string.h"
 #include "winregfs.h"
 
 /* Avoid str[n]cmp calls by doing this simple check directly */
@@ -45,6 +46,7 @@ const int ss = sizeof(slash) - 1;
 
 
 /*** Non-FUSE helper functions ***/
+
 
 /* Return offset to the first non-hexadecimal char in string */
 static int find_nonhex(const char * const restrict string, int len)
@@ -118,14 +120,14 @@ static int process_ext(char * const node)
 	*str_ext = '\0';
 	str_ext++;
 	for (; i < REG_MAX; i++) {
-		if (!strncasecmp(str_ext, ext[i], 8)) return i;
+		if (!strcaseeq(str_ext, ext[i])) return i;
 	}
 	return -1;
 }
 
 
 /* Add the type extension to the registry value name */
-static inline int add_val_ext(char * const restrict filename,
+static int add_val_ext(char * const restrict filename,
 		const struct vex_data * const restrict vex)
 {
 	LOAD_WD_LOGONLY();
@@ -134,7 +136,7 @@ static inline int add_val_ext(char * const restrict filename,
 		LOG("add_val_ext: error: value type out of range: %s\n", filename);
 		return 1;
 	}
-	strncpy(filename, vex->name, ABSPATHLEN);
+	xstrcpy(filename, vex->name);
 	strncat(filename, ".", ABSPATHLEN);
 	strncat(filename, ext[vex->type], ABSPATHLEN);
 	return 0;
@@ -169,7 +171,7 @@ static int escape_fwdslash(char * const path)
 	q = temp;
 	for (; pos < ABSPATHLEN; pos++) {
 		if (*p == '/') {
-			strncpy(q, slash, ss);
+			xstrcpy(q, slash);
 			q += (ss - 1);
 			pos = (pos + ss - 2);
 		} else *q = *p;
@@ -180,7 +182,7 @@ static int escape_fwdslash(char * const path)
 		LOG("escape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
-	strncpy(path, temp, ABSPATHLEN);
+	xstrcpy(path, temp);
 	return 0;
 }
 
@@ -213,7 +215,7 @@ static int unescape_fwdslash(char *path)
 		LOG("unescape_fwdslash: maximum path length reached\n");
 		return -ENAMETOOLONG;
 	}
-	strncpy(path, temp, ABSPATHLEN);
+	xstrcpy(path, temp);
 	return 0;
 }
 
@@ -244,7 +246,7 @@ static void log_nk_cache_stats(struct winregfs_data * const restrict wd)
 
 
 /* Collect information on NK offset cache success/failure */
-static inline void nk_cache_stats(struct winregfs_data * const restrict wd,
+static void nk_cache_stats(struct winregfs_data * const restrict wd,
 		char hit)
 {
 	switch (hit) {
@@ -311,7 +313,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 		if (!wd->nk_hash[i]) break;  /* 0 = end of recorded hashes */
 		if (wd->nk_hash[i] == hash) {
 			nk_cache_stats(wd, HASH_HIT);
-			if (!strncasecmp(wd->nk_last_path[i], keypath, ABSPATHLEN)) {
+			if (!strcaseeq(wd->nk_last_path[i], keypath)) {
 				if (!update_cache) {
 					nkofs = wd->nk_last_nkofs[i];
 					*key = wd->nk_last_key[i];
@@ -359,7 +361,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 	LOCK();
 
 	if (++wd->nk_cache_pos >= CACHE_ITEMS) wd->nk_cache_pos = 0;
-	strncpy(wd->nk_last_path[wd->nk_cache_pos], keypath, ABSPATHLEN);
+	xstrcpy(wd->nk_last_path[wd->nk_cache_pos], keypath);
 	wd->nk_last_nkofs[wd->nk_cache_pos] = nkofs;
 	wd->nk_last_key[wd->nk_cache_pos] = *key;
 	wd->nk_hash[wd->nk_cache_pos] = cache_hash(keypath);
@@ -376,10 +378,10 @@ static inline int sanitize_path(const char * const restrict path,
 {
 	char temp[ABSPATHLEN];
 
-	strncpy(keypath, path, ABSPATHLEN);
-	strncpy(temp, path, ABSPATHLEN);
+	xstrcpy(keypath, path);
+	xstrcpy(temp, path);
 	dirname(keypath);   /* need to read the root key */
-	strncpy(node, basename(temp), ABSPATHLEN);
+	xstrcpy(node, basename(temp));
 	slash_fix(keypath);
 	unescape_fwdslash(node);
 	unescape_fwdslash(keypath);
@@ -425,7 +427,7 @@ static int winregfs_access(const char * const restrict path, int mode)
 
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
-			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
+			if (!strcaseeq(node, ex.name)) {
 				DLOG("access: ex_n: %p size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
 				DLOG("access: directory OK: %s\n", node);
@@ -437,9 +439,9 @@ static int winregfs_access(const char * const restrict path, int mode)
 	count = 0;
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
 			else add_val_ext(filename, &vex);
-			if (!strncasecmp(node, filename, ABSPATHLEN)) {
+			if (!strcaseeq(node, filename)) {
 				if (!(mode & X_OK)) {
 					DLOG("access: OK: ex_v: nkofs %x vkofs %x size %d c %d\n",
 							nkofs, vex.vkoffs, vex.size, count);
@@ -499,7 +501,7 @@ static int winregfs_getattr(const char * const restrict path,
 	DLOG("getattr: key->no_subkeys = %d\n", key->no_subkeys);
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
-			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {
+			if (!strcaseeq(node, ex.name)) {
 				stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
@@ -514,16 +516,16 @@ static int winregfs_getattr(const char * const restrict path,
 	DLOG("getattr: key->no_values = %d\n", key->no_values);
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
 			else add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
-				strncpy(check1, node, ABSPATHLEN);
-				strncpy(check2, filename, ABSPATHLEN);
+				xstrcpy(check1, node);
+				xstrcpy(check2, filename);
 				token = strrchr(check2, '.');
 				*token = '\0';
-				if (!strncasecmp(check1, check2, ABSPATHLEN)) {
+				if (!strcaseeq(check1, check2)) {
 					LOG("getattr: wildcard found for %s\n", path);
 					goto getattr_wildcard;
 				} else {
@@ -531,7 +533,7 @@ static int winregfs_getattr(const char * const restrict path,
 				}
 			}
 
-			if (!strncasecmp(node, filename, ABSPATHLEN)) {
+			if (!strcaseeq(node, filename)) {
 getattr_wildcard:
 				stbuf->st_mode = S_IFREG | (0666 & attrmask);
 				stbuf->st_nlink = 1;
@@ -556,13 +558,13 @@ getattr_wildcard:
 			}
 
 			/* Prevent creation of conflicting files */
-			strncpy(check1, node, ABSPATHLEN);
+			xstrcpy(check1, node);
 			token = strrchr(check1, '.');
 			*token = '\0';
-			strncpy(check2, filename, ABSPATHLEN);
+			xstrcpy(check2, filename);
 			token = strrchr(check2, '.');
 			*token = '\0';
-			if (!strncasecmp(check1, check2, ABSPATHLEN)) {
+			if (!strcaseeq(check1, check2)) {
 				stbuf->st_mode = S_IFREG | 0000;
 				stbuf->st_nlink = 1;
 				stbuf->st_size = 0;
@@ -592,7 +594,7 @@ static int winregfs_readdir(const char * const restrict path,
 
 	DLOG("readdir: %s  (+%d)\n", path, (int)offset);
 
-	strncpy(keypath, path, ABSPATHLEN);
+	xstrcpy(keypath, path);
 	slash_fix(keypath);
 	unescape_fwdslash(keypath);
 
@@ -609,7 +611,7 @@ static int winregfs_readdir(const char * const restrict path,
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
 			DLOG("readdir: n_filler: %s\n", ex.name);
-			strncpy(filename, ex.name, ABSPATHLEN);
+			xstrcpy(filename, ex.name);
 			escape_fwdslash(filename);
 			filler(buf, filename, NULL, 0);
 		}
@@ -620,7 +622,7 @@ static int winregfs_readdir(const char * const restrict path,
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) {
-				strncpy(filename, "@.sz", 5);
+				xstrcpy(filename, "@.sz");
 				DLOG("readdir: v_filler: %s\n", filename);
 				filler(buf, filename, NULL, 0);
 			} else {
@@ -682,7 +684,7 @@ static int winregfs_open(const char * const restrict path,
 
 	if (key->no_subkeys) {
 		while (ex_next_n(wd->hive, nkofs, &count, &countri, &ex) > 0) {
-			if (!strncasecmp(node, ex.name, ABSPATHLEN)) {  /* remove leading slash */
+			if (!strcaseeq(node, ex.name)) {  /* remove leading slash */
 				LOG("open: Is a directory: %s\n", node);
 				return -EISDIR;
 			}
@@ -692,21 +694,21 @@ static int winregfs_open(const char * const restrict path,
 	count = 0;
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) strncpy(filename, "@.sz", 5);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
 			else add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
-				strncpy(check1, node, ABSPATHLEN);
-				strncpy(check2, filename, ABSPATHLEN);
+				xstrcpy(check1, node);
+				xstrcpy(check2, filename);
 				token = strrchr(check2, '.');
 				*token = '\0';
-				if (!strncasecmp(check1, check2, ABSPATHLEN)) {
+				if (!strcaseeq(check1, check2)) {
 					LOG("open: wildcard found for %s\n", path);
 					return 0;
 				} else continue;
 			}
-			if (!strncasecmp(node, filename, ABSPATHLEN)) return 0;
+			if (!strcaseeq(node, filename)) return 0;
 		}
 	}
 	LOG("open: No such file or directory for %s\n", path);
@@ -746,9 +748,9 @@ static int winregfs_read(const char * const restrict path,
 		count = 0;
 		if (key->no_values) {
 			while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-				if (strlen(vex.name) == 0) strncpy(filename, "@", 2);
-				else strncpy(filename, vex.name, ABSPATHLEN);
-				if (!strncasecmp(node, filename, ABSPATHLEN)) goto read_wildcard;
+				if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+				else xstrcpy(filename, vex.name);
+				if (!strcaseeq(node, filename)) goto read_wildcard;
 			}
 		}
 		goto error_invalid_ext;
@@ -806,11 +808,11 @@ error_invalid_ext:
 	LOG("read: invalid type extension: %s\n", path);
 	return -EINVAL;
 error_read_value:
-	if (*node == '\0') strncpy(node, "@", 2);
+	if (*node == '\0') xstrcpy(node, "@");
 	LOG("read: Can't read value '%s'\n", node);
 	return -EINVAL;
 error_no_value:
-	if (*node == '\0') strncpy(node, "@", 2);
+	if (*node == '\0') xstrcpy(node, "@");
 	LOG("read: No such value '%s'\n", node);
 	return -EINVAL;
 }
@@ -1315,7 +1317,7 @@ int main(int argc, char *argv[])
 	int i;
 
 	/* Show version and return successfully if requested */
-	if (argc == 2 && !strncasecmp(argv[1], "-v", 2)) {
+	if (argc == 2 && !strcaseeq(argv[1], "-v")) {
 		fprintf(stderr, "Windows Registry Filesystem %s (%s)\n", VER, VERDATE);
 		return EXIT_SUCCESS;
 	}
@@ -1327,7 +1329,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Pull hive file name from command line and pass to FUSE */
-	strncpy(file, argv[argc-2], ABSPATHLEN);
+	xstrcpy(file, argv[argc-2]);
 #if ENABLE_THREADED
 	argv[argc-2] = argv[argc-1];
 	argv[argc-1] = NULL;
@@ -1336,7 +1338,7 @@ int main(int argc, char *argv[])
 	/* Add single-threaded mode switch "-s" to args */
 	argv[argc-2] = (char *) malloc(3);
 	if (!argv[argc-2]) goto oom;
-	strncpy(argv[argc-2], "-s", 3);
+	xstrcpy(argv[argc-2], "-s");
 #endif
 
 	wd = (struct winregfs_data *) malloc(sizeof(struct winregfs_data));
