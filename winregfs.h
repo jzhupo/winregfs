@@ -138,6 +138,6 @@ struct winregfs_data {
 #define UNLOCK()
 #endif
 
-void invalidate_cache(void);
+void invalidate_nk_cache(void);
 
 #endif /* _WINREGFS_H */

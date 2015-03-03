@@ -38,7 +38,7 @@ struct fsck_stat {
 	int update_delay;
 };
 
-void invalidate_cache(void) {
+void invalidate_nk_cache(void) {
 	return;
 }
 

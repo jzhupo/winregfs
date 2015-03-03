@@ -463,7 +463,7 @@ int add_bin(struct hive * const hdesc, int size)
     if (mark_pages_dirty(hdesc, hdesc->size, newsize)) goto error_dirty;
     hdesc->size = newsize;
 
-    invalidate_cache();  /* winregfs cache must be wiped if buffer is reallocated */
+    invalidate_nk_cache();  /* winregfs cache must be wiped if buffer is reallocated */
     LOG("winregfs cache invalidated by ntreg\n");
   }
 

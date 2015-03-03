@@ -272,7 +272,7 @@ static inline void nk_cache_stats(struct winregfs_data * const restrict wd,
 
 
 /* Clear all cache elements (used when hive buffer is invalidated */
-void invalidate_cache(void)
+void invalidate_nk_cache(void)
 {
 	int i;
 	LOAD_WD();
