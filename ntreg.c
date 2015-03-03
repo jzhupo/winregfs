@@ -297,7 +297,7 @@ bad_end:
  * vofs = offset into struct (after size linkage)
  */
 
-int parse_block(struct hive *hdesc, int vofs)
+inline int parse_block(struct hive *hdesc, int vofs)
 {
 /*  unsigned short id; */
   int seglen;
@@ -988,14 +988,15 @@ static int vlist_find(const struct hive * const restrict hdesc,
  * return: offset to nk or vk (or NULL if not found)
  */
 
-int trav_path(struct hive *hdesc, int vofs, const char * restrict path, int type)
+int trav_path(struct hive * const hdesc, int vofs,
+		const char * restrict path, int type)
 {
-  struct nk_key *key, *newnkkey;
-  struct lf_key *lfkey;
-  struct li_key *likey;
-  struct ri_key *rikey;
+  const struct nk_key *key, *newnkkey;
+  const struct lf_key *lfkey;
+  const struct li_key *likey;
+  const struct ri_key *rikey;
 
-  int32_t *vlistkey;
+  const int32_t *vlistkey;
   int newnkofs, i, lfofs, vlistofs, r, ricnt, subs;
   int plen = 0;
   int adjust = 0;
