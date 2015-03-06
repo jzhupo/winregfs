@@ -1,3 +1,6 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
 /* Threaded mode suffers from decreased performance */
 #define ENABLE_THREADED 0
 
@@ -9,3 +12,4 @@
 #define ENABLE_NKOFS_CACHE_STATS 0
 #define CACHE_ITEMS 64
 
+#endif	/* CONFIG_H */

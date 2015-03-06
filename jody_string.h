@@ -4,8 +4,8 @@
  * Distributed under the GNU General Public License version 2
  */
 
-#ifndef _JODY_STRING_H
-#define _JODY_STRING_H
+#ifndef JODY_STRING_H
+#define JODY_STRING_H
 
 #include <stdint.h>
 #include <unistd.h>
@@ -27,4 +27,4 @@ inline void xstrcpy(char * restrict dest, const char * restrict src)
 }
 
 
-#endif /* _JODY_STRING_H */
+#endif /* JODY_STRING_H */

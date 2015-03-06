@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef _WINREGFS_H
-#define _WINREGFS_H
+#ifndef WINREGFS_H
+#define WINREGFS_H
 
 #include "version.h"
 
@@ -140,4 +140,4 @@ struct winregfs_data {
 
 void invalidate_nk_cache(void);
 
-#endif /* _WINREGFS_H */
+#endif /* WINREGFS_H */

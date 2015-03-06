@@ -25,8 +25,8 @@
  */ 
 
 
-#ifndef _NTREG_H
-#define _NTREG_H
+#ifndef NTREG_H
+#define NTREG_H
 
 #define KEY_ROOT   0x2c         /* Type ID of ROOT key node */
 #define KEY_NORMAL 0x20       /* Normal nk key */
@@ -401,4 +401,4 @@ int add_bin(struct hive *hdesc, int size);
 int de_escape(char *s, int wide);
 void string_regw2prog(char * const restrict cstring, const void * const restrict string, int len);
 
-#endif
+#endif	/* NTREG_H */
