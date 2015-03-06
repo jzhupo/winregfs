@@ -14,7 +14,7 @@ int strncaseeq(const char *s1, const char *s2, size_t len)
 
 	while (i < len) {
 		if (*s1 != *s2) {
-			char c1, c2;
+			unsigned char c1, c2;
 
 			c1 = *s1;
 			c2 = *s2;
@@ -37,7 +37,7 @@ int strcaseeq(const char *s1, const char *s2)
 {
 	while (1) {
 		if (*s1 != *s2) {
-			char c1, c2;
+			unsigned char c1, c2;
 
 			c1 = *s1;
 			c2 = *s2;
