@@ -12,7 +12,7 @@
 
 #include "version.h"
 
-#ifndef _FSCK_
+#ifndef FSCK_WINREGFS
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
 #endif
@@ -40,7 +40,7 @@
 # error ENABLE_NKOFS_CACHE enabled; CACHE_ITEMS must be set and non-zero
 # endif
 #endif
-#ifdef _FSCK_
+#ifdef FSCK_WINREGFS
 #undef ENABLE_LOGGING
 #define ENABLE_LOGGING 0
 #undef ENABLE_THREADED

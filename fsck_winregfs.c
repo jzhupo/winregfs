@@ -7,7 +7,7 @@
  *
  */
 
-#define _FSCK_
+#define FSCK_WINREGFS
 
 #include <stdio.h>
 #include <stdlib.h>
