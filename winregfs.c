@@ -59,7 +59,7 @@ static int find_nonhex(const char * const restrict string, int len)
 		if (*(string + offset) == 0) return offset;
 		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
 		if (q > 48) q -= 39;
-		if (q < 0 || q > 15) return offset;
+		if (q > 15) return offset;
 	}
 	return -1;
 }
@@ -80,7 +80,7 @@ static int convert_hex(const char * const restrict string,
 		*dest <<= 4;  /* Shift for each character processed */
 		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
 		if (q > 48) q -= 39;
-		if (q < 0 || q > 15) return -1;
+		if (q > 15) return -1;
 		*dest += q;
 	}
 	return 0;
@@ -332,8 +332,8 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 					UNLOCK();
 					return nkofs;
 				}
-			} else nk_cache_stats(wd, HASH_FAIL);
-		} else nk_cache_stats(wd, HASH_MISS);
+			} else { nk_cache_stats(wd, HASH_FAIL) }
+		} else { nk_cache_stats(wd, HASH_MISS) }
 		if (update_cache) return 0;
 		/* If we've hit item 0, return the cache ring position to the end of the ring */
 		if (!i) i = CACHE_ITEMS;
@@ -572,7 +572,7 @@ getattr_wildcard:
 				return 0;
 			}
 		}
-	} else DLOG("getattr: no values for key: %p\n", (void *)key);
+	} else { DLOG("getattr: no values for key: %p\n", (void *)key) }
 	LOG("getattr: not found: %s\n", path);
 	return -ENOENT;
 }
@@ -727,7 +727,7 @@ static int winregfs_read(const char * const restrict path,
 
 	struct nk_key *key;
 	void *data;
-	size_t len;
+	int len;
 	int i, type, count;
 	char string[4096];
 	char *sptr = string;
@@ -794,7 +794,7 @@ read_wildcard:
 	}
 
 	if (offset < len) {
-		if (offset + size > len) size = len - offset;
+		if (offset + size > (unsigned int)len) size = len - offset;
 		memcpy(buf, sptr + offset, size);
 	} else size = 0;
 
@@ -852,7 +852,7 @@ static int winregfs_write(const char * const restrict path,
 
 	struct nk_key *key;
 	int i, type;
-	size_t newsize;
+	int newsize;
 	char *newbuf = NULL;
 	char string[4096];
 	uint64_t val;  /* DWORD/QWORD hex string value */

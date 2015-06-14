@@ -66,7 +66,7 @@ static inline void str_memcpy(char *dest, const char *src, int len)
 	if ((uintptr_t)src & (sizeof(unsigned long) - 1)) goto bytewise_copy;
 
 	/* Word copy */
-	while (remain > sizeof(unsigned long)) {
+	while (remain > (int)sizeof(unsigned long)) {
 		*ldest = *lsrc;
 		ldest++; lsrc++;
 		remain -= sizeof(unsigned long);
@@ -826,7 +826,7 @@ int ex_next_v(struct hive * const hdesc, int nkofs,
 
   if (!nkofs) goto error_nkofs_null;
   if (!sptr) goto error_sptr_null;
-  if ((nkofs + sizeof(struct nk_key)) > hdesc->size) goto error_nk_eof;
+  if ((int)(nkofs + sizeof(struct nk_key)) > hdesc->size) goto error_nk_eof;
 
   key = (struct nk_key *)(hdesc->buffer + nkofs);
 
@@ -839,7 +839,7 @@ int ex_next_v(struct hive * const hdesc, int nkofs,
   if (hdesc->size < vlistofs) goto error_vlistofs_size;
 
   vkofs = vlistkey[*count] + 0x1004;
-  if ((vkofs + sizeof(struct vk_key)) > hdesc->size) goto error_key_offset_size;
+  if ((int)(vkofs + sizeof(struct vk_key)) > hdesc->size) goto error_key_offset_size;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   if (vkkey->id != 0x6b76) goto error_not_vk;
 
@@ -932,7 +932,7 @@ int get_abs_path(struct hive *hdesc, int nkofs, char *path, int maxlen)
     string_regw2prog(keyname, key->keyname, key->len_name);
   }
   len_name = strlen(keyname);
-  if ((strlen(path) + len_name) >= maxlen-6) {
+  if ((int)(strlen(path) + len_name) >= maxlen - 6) {
     snprintf(path,maxlen,"(...)%s",tmp);
     return strlen(path);   /* Stop trace when string exhausted */
   }
@@ -1411,7 +1411,7 @@ int fill_block(struct hive *hdesc, int ofs, void *data, int size)
   blksize = -blksize;
 
   /*  if (blksize < size || ( (ofs & 0xfffff000) != ((ofs+size) & 0xfffff000) )) { */
-  if (blksize < size) goto error_too_small;
+  if (blksize < (unsigned int)size) goto error_too_small;
 
   memcpy(hdesc->buffer + ofs + 4, data, size);
   if (mark_pages_dirty(hdesc, ofs + 4, ofs + size + 4)) goto error_dirty;
@@ -1948,7 +1948,7 @@ struct nk_key *add_key(struct hive *hdesc, int nkofs, char *name)
       newlf->h.hash[slot].name[3] = 0;
       strncpy(newlf->h.hash[slot].name, name, 4);
     } else if (newlf->id == 0x686c) {  /* lh. XP uses this. hashes whole name */
-      for (i = 0,hash = 0; i < strlen(name); i++) {
+      for (i = 0, hash = 0; i < (int)strlen(name); i++) {
 	hash *= 37;
 	hash += reg_touppertable[(unsigned char)name[i]];
       }
@@ -2641,7 +2641,7 @@ struct hive *open_hive(char *filename, int mode)
      LOG("open_hive: Root key is not a key (not of type 'nk')\n");
    }
 
-   while (pofs < hdr->filesize + 0x1000) {   /* Loop through hbins until end according to regf header */
+   while (pofs < (unsigned int)(hdr->filesize + 0x1000)) {   /* Loop through hbins until end according to regf header */
      p = (struct hbin_page *)(hdesc->buffer + pofs);
      if (p->id != 0x6E696268) {
        break;
@@ -2653,7 +2653,7 @@ struct hive *open_hive(char *filename, int mode)
 
      vofs = pofs + 0x20; /* Skip page header, and run through blocks in hbin */
 
-     while (vofs-pofs < p->ofs_next && vofs < hdesc->size) {
+     while ((int)(vofs - pofs) < p->ofs_next && vofs < hdesc->size) {
        vofs += parse_block(hdesc, vofs);
      }
      pofs += p->ofs_next;

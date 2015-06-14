@@ -226,7 +226,7 @@ struct vk_key {
 			/* Offset	Size	Contents		*/
   int16_t id;		/* 0x0000	Word	ID: ASCII-"vk" = 0x6B76	*/
   int16_t len_name;	/* 0x0002	Word	name length		*/
-  int32_t  len_data;	/* 0x0004	D-Word	length of the data	*/
+  uint32_t  len_data;	/* 0x0004	D-Word	length of the data	*/
   int32_t  ofs_data;	/* 0x0008	D-Word	Offset of Data		*/
   int32_t  val_type;	/* 0x000C	D-Word	Type of value		*/
   int16_t flag;		/* 0x0010	Word	Flag
