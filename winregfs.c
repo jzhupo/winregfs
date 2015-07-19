@@ -572,7 +572,7 @@ getattr_wildcard:
 				return 0;
 			}
 		}
-	} else { DLOG("getattr: no values for key: %p\n", (void *)key) }
+	} else { DLOG("getattr: no values for key: %p\n", (void *)key); }
 	LOG("getattr: not found: %s\n", path);
 	return -ENOENT;
 }
