@@ -7,6 +7,10 @@
 #ifndef JODY_STRING_H
 #define JODY_STRING_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <unistd.h>
 
@@ -26,5 +30,8 @@ inline void xstrcpy(char * restrict dest, const char * restrict src)
         *dest = '\0';
 }
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* JODY_STRING_H */
