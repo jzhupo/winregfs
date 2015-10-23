@@ -1206,7 +1206,7 @@ int get_val_type(struct hive *hdesc, int vofs, char *path, int exact)
 	LOG("get_val_type: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
   }
-  vkofs +=4;
+  vkofs += 4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   return vkkey->val_type;
 }
@@ -1226,7 +1226,7 @@ int set_val_type(struct hive *hdesc, int vofs, char *path, int exact, int type)
 	LOG("set_val_type: trav_path failed: %s offset %d\n", path, vofs);
 	return -1;
   }
-  vkofs +=4;
+  vkofs += 4;
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   vkkey->val_type = type;
   return vkkey->val_type;
@@ -1338,7 +1338,7 @@ struct keyval *get_val2buf(struct hive *hdesc, struct keyval *kv,
   if (l == -1) {
 	  LOG("get_val2buf: get_val_len error: %s offset %d\n", path, vofs);
 	  return NULL;
-	}
+  }
   if (kv && (kv->len < l)) {
 	  LOG("get_val2buf: Buffer overflow\n");
 	  return NULL;
