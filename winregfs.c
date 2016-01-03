@@ -1,7 +1,7 @@
 /*
  * Windows Registry FUSE Filesystem
  *
- * Copyright (C) 2014, 2015 Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2014-2016 Jody Bruchon <jody@jodybruchon.com>
  *
  * Mounts a Windows registry hive file as a filesystem using FUSE
  * Registry keys become directories and values become files

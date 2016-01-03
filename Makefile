@@ -23,6 +23,8 @@ OBJS_LIB=ntreg.o jody_string.o
 OBJS_FSCK=fsck_winregfs.o $(OBJS_LIB)
 OBJS_MOUNT=winregfs.o jody_hash.o $(OBJS_LIB)
 
+BUILD_CFLAGS += $(CFLAGS_EXTRA)
+
 all: mount.winregfs fsck.winregfs manual
 
 mount.winregfs: $(OBJS_MOUNT)
