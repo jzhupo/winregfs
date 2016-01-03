@@ -49,6 +49,8 @@
 #define DLOG(...) printf(__VA_ARGS__)
 #endif
 
+static char *blank = '\0';
+
 /* Optimized non-terminated string copy
  *
  * Inline code that accepts a non-terminated string and a length and
@@ -1589,7 +1591,6 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   struct nk_key *nk;
   int oldvlist = 0, newvlist, newvkofs, i;
   struct vk_key *newvkkey;
-  char *blank="";
 
   LOAD_WD_LOGONLY();
 
@@ -1713,7 +1714,6 @@ int del_value(struct hive *hdesc, int nkofs, char *name)
   int vlistofs, slot, o, n, vkofs, newlistofs;
   int32_t *vlistkey, *tmplist, *newlistkey;
   struct nk_key *nk;
-  char *blank="";
 
   LOAD_WD_LOGONLY();
 
