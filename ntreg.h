@@ -337,10 +337,10 @@ struct hive {
   int  unuseblk;	/* Total # of unused blocks */
   int  usetot;		/* total # of bytes in useblk */
   int  unusetot;	/* total # of bytes in unuseblk */
-  int  size;		/* Hives size (filesize) in bytes, incl regf header */
+  off_t size;		/* Hives size (filesize) in bytes, incl regf header */
   int  rootofs;		/* Offset of root-node */
   int  lastbin;		/* Offset to last HBIN */
-  int  endofs;		/* Offset of first non HBIN page, we can expand from here */
+  unsigned int endofs;	/* Offset of first non HBIN page, we can expand from here */
   int  dirty[MAX_DIRTY];/* Dirty page list */
   int  dirty_entries;	/* Number of dirty pages */
   int16_t nkindextype;	/* Subkey-indextype the root key uses */
@@ -366,8 +366,8 @@ struct hive {
 
 /******* Function prototypes **********/
 
-void cheap_uni2ascii(char *src, char *dest, int l);
-void cheap_ascii2uni(char *src, char *dest, int l);
+void cheap_uni2ascii(const char *src, char *dest, int l);
+void cheap_ascii2uni(const char *src, char *dest, int l);
 
 int parse_block(struct hive *hdesc, int vofs);
 int ex_next_n(const struct hive * const hdesc, int nkofs, int * const restrict count,
@@ -398,7 +398,6 @@ int del_key(struct hive *hdesc, int nkofs, char *name);
 
 int add_bin(struct hive *hdesc, int size);
 
-int de_escape(char *s, int wide);
 void string_regw2prog(char * const restrict cstring, const void * const restrict string, int len);
 
 #endif	/* NTREG_H */

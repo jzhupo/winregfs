@@ -51,39 +51,7 @@
 
 static char *blank = '\0';
 
-/* Optimized non-terminated string copy
- *
- * Inline code that accepts a non-terminated string and a length and
- * copies the string, null-terminating it. Attempts to use word-size
- * operations when possible.
- */
-static inline void str_memcpy(char *dest, const char *src, int len)
-{
-	unsigned long *ldest = (unsigned long *)dest;
-	const unsigned long *lsrc = (unsigned long *)src;
-	int remain = len;
-
-	/* Alignment check - don't use word-sized copy for unaligned objects */
-	if ((uintptr_t)dest & (sizeof(unsigned long) - 1)) goto bytewise_copy;
-	if ((uintptr_t)src & (sizeof(unsigned long) - 1)) goto bytewise_copy;
-
-	/* Word copy */
-	while (remain > (int)sizeof(unsigned long)) {
-		*ldest = *lsrc;
-		ldest++; lsrc++;
-		remain -= sizeof(unsigned long);
-	}
-
-bytewise_copy:
-	dest = (char *)ldest;
-	src = (char *)lsrc;
-	while (remain > 0) {
-		*dest = *src;
-		dest++; src++;
-		remain--;
-	}
-	*dest = '\0';
-}
+static inline int de_escape(char *s, int wide);
 
 const char *val_types[REG_MAX+1] = {
   "REG_NONE", "REG_SZ", "REG_EXPAND_SZ", "REG_BINARY", "REG_DWORD",       /* 0 - 4 */
@@ -149,10 +117,10 @@ static const unsigned char reg_touppertable[] = {
 
 static int strn_casecmp(const char *s1, const char *s2, size_t n)
 {
-  char r;
+  int r;
 
   while (*s1 && *s2 && n) {
-    r = (unsigned char)reg_touppertable[(unsigned char)*s1] - (unsigned char)reg_touppertable[(unsigned char)*s2];
+    r = reg_touppertable[(unsigned char)*s1] - reg_touppertable[(unsigned char)*s2];
     if (r) return r;
     n--;
     s1++;
@@ -178,6 +146,41 @@ static inline char *str_dup(const char * const restrict str)
 }
 
 
+/* Optimized non-terminated string copy
+ *
+ * Inline code that accepts a non-terminated string and a length and
+ * copies the string, null-terminating it. Attempts to use word-size
+ * operations when possible.
+ */
+static inline void str_memcpy(char *dest, const char *src, int len)
+{
+	unsigned long *ldest = (unsigned long *)dest;
+	const unsigned long *lsrc = (unsigned long *)src;
+	int remain = len;
+
+	/* Alignment check - don't use word-sized copy for unaligned objects */
+	if (len < (int)sizeof(unsigned long)) goto bytewise_copy;
+	if ((uintptr_t)dest & (sizeof(unsigned long) - 1)) goto bytewise_copy;
+	if ((uintptr_t)src & (sizeof(unsigned long) - 1)) goto bytewise_copy;
+
+	/* Word copy */
+	while (remain > (int)sizeof(unsigned long)) {
+		*ldest = *lsrc;
+		ldest++; lsrc++;
+		remain -= sizeof(unsigned long);
+	}
+
+bytewise_copy:
+	dest = (char *)ldest;
+	src = (char *)lsrc;
+	while (remain > 0) {
+		*dest = *src;
+		dest++; src++;
+		remain--;
+	}
+	*dest = '\0';
+}
+
 /* Get INTEGER from memory. This is probably low-endian specific? */
 /* This is totally unnecessary on i386/x86_64, so macro it out! */
 #define get_int32(a) *(int32_t *)(a)
@@ -191,7 +194,7 @@ static inline int get_int32(char *array)
 #endif
 
 /* Quick and dirty UNICODE to std. ascii */
-void cheap_uni2ascii(char *src, char *dest, int l)
+void cheap_uni2ascii(const char *src, char *dest, int l)
 {
    for (; l > 0; l -=2) {
       *dest = *src;
@@ -202,8 +205,7 @@ void cheap_uni2ascii(char *src, char *dest, int l)
 
 
 /* Quick and dirty ascii to unicode */
-
-void cheap_ascii2uni(char *src, char *dest, int l)
+void cheap_ascii2uni(const char *src, char *dest, int l)
 {
    for (; l > 0; l--) {
       *dest++ = *src++;
@@ -441,7 +443,9 @@ int find_free(struct hive * const hdesc, int size)
 
 int add_bin(struct hive * const hdesc, int size)
 {
-  int r, newsize, newbinofs;
+  unsigned int r;
+  unsigned int newsize;
+  unsigned int newbinofs;
   struct hbin_page *newbin;
   struct regf_header *hdr;
 
@@ -457,7 +461,7 @@ int add_bin(struct hive * const hdesc, int size)
   /* We must allocate more buffer */
   if ((newbinofs + r) >= hdesc->size) {
     /* File normally multiple of 0x40000 bytes */
-    newsize = ((newbinofs + r) & ~(REGF_FILEDIVISOR - 1)) + REGF_FILEDIVISOR;
+    newsize = ((newbinofs + r) & (unsigned int)~(REGF_FILEDIVISOR - 1)) + REGF_FILEDIVISOR;
 
     hdesc->buffer = realloc(hdesc->buffer, newsize);
     if (!hdesc->buffer) goto error_realloc;
@@ -501,7 +505,7 @@ error_noexpand:
   LOG("add_bin: %s cannot be expanded as required (NOEXPAND is set)\n", hdesc->filename);
   return 0;
 error_realloc:
-  LOG("add_bin: realloc to size %d failed\n", newsize);
+  LOG("add_bin: realloc to size %u failed\n", newsize);
   return 0;
 error_dirty:
   LOG("add_bin: mark_pages_dirty returned an error\n");
@@ -2437,7 +2441,7 @@ static char *string_prog2regw(void *string, int len, int *out_len)
 }
 
 
-int de_escape(char *s, int wide)
+static inline int de_escape(char *s, int wide)
 {
   int src = 0;
   int dst = 0;

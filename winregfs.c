@@ -474,7 +474,7 @@ static int winregfs_getattr(const char * const restrict path,
 	char check1[ABSPATHLEN];
 	char check2[ABSPATHLEN];
 	char *token;
-	int attrmask = 0777;
+	unsigned int attrmask = 0777;
 
 	LOAD_WD();
 
