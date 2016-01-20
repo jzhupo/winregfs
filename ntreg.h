@@ -33,7 +33,6 @@
 
 #define ABSPATHLEN 4096
 
-
 /* hbin page size. hbins are minimum this, and always multiple of this */
 #define HBIN_PAGESIZE 0x1000
 /* Hive filesize seems to always be multiple of this */
@@ -323,7 +322,7 @@ struct keyval {
 
 
 /* Maximum number of dirty pages before forced commit */
-#define MAX_DIRTY 16
+#define MAX_DIRTY 32
 
 /* Hive definition, allocated by open_hive(), dealloc by close_hive()
  * contains state data, must be passed in all functions
@@ -368,6 +367,8 @@ struct hive {
 
 void cheap_uni2ascii(const char *src, char *dest, int l);
 void cheap_ascii2uni(const char *src, char *dest, int l);
+
+int flush_dirty_pages(struct hive *hdesc);
 
 int parse_block(struct hive *hdesc, int vofs);
 int ex_next_n(const struct hive * const hdesc, int nkofs, int * const restrict count,
