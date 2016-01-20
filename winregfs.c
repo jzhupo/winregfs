@@ -273,7 +273,7 @@ static void nk_cache_stats(struct winregfs_data * const restrict wd,
 #endif /* NKOFS_CACHE_STATS */
 
 
-/* Clear all cache elements (used when hive buffer is invalidated */
+/* Clear all cache elements (used when hive buffer is invalidated) */
 void invalidate_nk_cache(void)
 {
 	int i;
@@ -458,6 +458,15 @@ static int winregfs_access(const char * const restrict path, int mode)
 	return -ENOENT;
 }
 
+
+/* Flush dirty data */
+static int winregfs_flush(const char *path, struct fuse_file_info *fi)
+{
+	LOAD_WD();
+
+	DLOG("flush: writing dirty pages to disk\n");
+	return flush_dirty_pages(wd->hive);
+}
 
 /* Get file attributes; size is adjusted for conversions we perform transparently */
 static int winregfs_getattr(const char * const restrict path,
@@ -1261,8 +1270,6 @@ static int winregfs_chown(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: chown\n"); return -1; }
 static int winregfs_statfs(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: statfs\n"); return -1; }
-static int winregfs_flush(void)
-{ LOAD_WD(); LOG("ERROR: Not implemented: flush\n"); return -1; }
 static int winregfs_release(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: release\n"); return -1; }
 static int winregfs_fsync(void)
@@ -1298,9 +1305,9 @@ static struct fuse_operations winregfs_oper = {
 	.write		= winregfs_write,
 	.access		= winregfs_access,
 	.utimens	= winregfs_utimens,
-/*	.statfs		= winregfs_statfs,
+/*	.statfs		= winregfs_statfs, */
 	.flush		= winregfs_flush,
-	.release	= winregfs_release,
+/*	.release	= winregfs_release,
 	.fsync		= winregfs_fsync,
 	.releasedir	= winregfs_releasedir,
 	.fsyncdir	= winregfs_fsyncdir,
