@@ -240,7 +240,7 @@ write_error:
 }
 
 
-/* Mark pages as dirty for writing */
+/* Mark 4K pages as dirty for writing */
 int mark_pages_dirty(struct hive *hdesc, int start, int end)
 {
 	int startpage;
@@ -406,7 +406,7 @@ int find_free_blk(struct hive * const hdesc, const int pofs, const int size)
 
 int find_free(struct hive * const hdesc, int size)
 {
-  int r, blk;
+  unsigned int r, blk;
   struct hbin_page *h;
 
   LOAD_WD_LOGONLY();
