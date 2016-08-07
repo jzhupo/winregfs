@@ -48,6 +48,19 @@ const int ss = sizeof(slash) - 1;
 /*** Non-FUSE helper functions ***/
 
 
+/* NT time to UNIX time */
+static time_t nttime_to_unixtime(char *timestamp)
+{
+	uint64_t newstamp;
+
+	memcpy(&newstamp, timestamp, sizeof(uint64_t));
+	newstamp /= 10000000LL;
+	if (newstamp <= 11644473600LL) return 0;
+	newstamp -= 11644473600LL;
+	return newstamp;
+}
+
+
 /* Return offset to the first non-hexadecimal char in string */
 static int find_nonhex(const char * const restrict string, int len)
 {
@@ -495,6 +508,9 @@ static int winregfs_getattr(const char * const restrict path,
 		stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 		stbuf->st_nlink = 2;
 		stbuf->st_size = 1;
+		stbuf->st_atime = 0;
+		stbuf->st_mtime = 0;
+		stbuf->st_ctime = 0;
 		return 0;
 	}
 	sanitize_path(path, keypath, node);
@@ -514,6 +530,9 @@ static int winregfs_getattr(const char * const restrict path,
 				stbuf->st_mode = S_IFDIR | (0777 & attrmask);
 				stbuf->st_nlink = 2;
 				stbuf->st_size = ex.nk->no_subkeys;
+				stbuf->st_mtime = nttime_to_unixtime(ex.nk->timestamp);
+				stbuf->st_ctime = stbuf->st_mtime;
+				stbuf->st_atime = stbuf->st_mtime;
 				DLOG("getattr: ex_n: %s size %d c %d cri %d\n",
 						path, ex.nk->no_subkeys, count, countri);
 				return 0;
