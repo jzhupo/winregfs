@@ -965,13 +965,18 @@ static int vlist_find(const struct hive * const restrict hdesc,
   int32_t *vlistkey;
   int approx = -1;
 
+  LOAD_WD_LOGONLY();
+
   len = strlen(name);
   vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
 
+  DLOG("vlist_find: vofs 0x%x, values %d, type 0x%x, name (%d) '%s'\n", vlistofs, numval, type, len, name);
   for (i = 0; i < numval; i++) {
     vkofs = vlistkey[i] + 0x1004;
     vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
+    DLOG("vlist_find: key len %d\n", vkkey->len_name);
     if (vkkey->len_name == 0 && *name == '@' && len == 1) { /* @ is alias for nameless value */
+      DLOG("vlist_find: at-value detected, returning %d\n", i);
       return i;
     }
 
@@ -1023,6 +1028,7 @@ int trav_path(struct hive * const hdesc, int vofs,
   }
   buf = hdesc->buffer;
 
+  DLOG("trav_path: vofs 0x%x, type 0x%x, path '%s'\n", vofs, type, path);
   if (!vofs) vofs = hdesc->rootofs + 4;     /* No current key given, so start at root */
 
   if (!(type & TPF_ABS) && *path == '\\' && *(path + 1) != '\\') {      /* Start from root if path starts with \ */
