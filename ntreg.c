@@ -733,6 +733,9 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
 
   if (!nkofs) return -1;
   if (!sptr) return -1;
+
+  DLOG("ex_next_n: nkofs %d, count %d, countri %d, sptr 0x%p\n", nkofs, *count, *countri, (void *)sptr);
+
   key = (struct nk_key *)(hdesc->buffer + nkofs);
   if (key->id != 0x6b6e) goto error_not_nk;
 
@@ -776,6 +779,7 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
   newnkkey = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
   sptr->nk = newnkkey;
 
+  DLOG("ex_next_n: sptr->nk 0x%p, newnkkey 0x%p, newnkofs 0x%d\n", (void *)sptr->nk, (void *)newnkkey, newnkofs);
   if (newnkkey->id != 0x6b6e) goto error_not_nk2;
   else {
     if (newnkkey->len_name <= 0) {
