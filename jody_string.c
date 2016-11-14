@@ -16,8 +16,8 @@ int strncaseeq(const char *s1, const char *s2, size_t len)
 		if (*s1 != *s2) {
 			unsigned char c1, c2;
 
-			c1 = *s1;
-			c2 = *s2;
+			c1 = *(const unsigned char *)s1;
+			c2 = *(const unsigned char *)s2;
 			/* Transform upper case to lower case */
 			if (c1 == 0 || c2 == 0) return 1;
 			if (c1 >= 'A' && c1 <= 'Z') c1 |= 0x20;
@@ -39,8 +39,8 @@ int strcaseeq(const char *s1, const char *s2)
 		if (*s1 != *s2) {
 			unsigned char c1, c2;
 
-			c1 = *s1;
-			c2 = *s2;
+			c1 = *(const unsigned char *)s1;
+			c2 = *(const unsigned char *)s2;
 			/* Transform upper case to lower case */
 			if (c1 == 0 || c2 == 0) return 1;
 			if (c1 >= 'A' && c1 <= 'Z') c1 |= 0x20;
