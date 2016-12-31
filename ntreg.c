@@ -155,7 +155,7 @@ static inline char *str_dup(const char * const restrict str)
 static inline void str_memcpy(char *dest, const char *src, int len)
 {
 	unsigned long *ldest = (unsigned long *)dest;
-	const unsigned long *lsrc = (unsigned long *)src;
+	const unsigned long *lsrc = (const unsigned long *)src;
 	int remain = len;
 
 	/* Alignment check - don't use word-sized copy for unaligned objects */
@@ -172,7 +172,7 @@ static inline void str_memcpy(char *dest, const char *src, int len)
 
 bytewise_copy:
 	dest = (char *)ldest;
-	src = (char *)lsrc;
+	src = (const char *)lsrc;
 	while (remain > 0) {
 		*dest = *src;
 		dest++; src++;
@@ -1053,12 +1053,12 @@ int trav_path(struct hive * const hdesc, int vofs,
     /* Find \ delimiter or end of string, copying to name part buffer as we go,
        rewriting double \\s */
     partptr = part;
-    for(plen = 0; path[plen] && (path[plen] != '\\' || path[plen+1] == '\\'); plen++) {
+    for (plen = 0; path[plen] && (path[plen] != '\\' || path[plen+1] == '\\'); plen++) {
       if (path[plen] == '\\' && path[plen+1] == '\\') plen++; /* Skip one if double */
       *partptr++ = path[plen];
     }
     *partptr = '\0';
-    if (!plen) return (vofs - 4);     /* Path has no length - we're there! */
+    if (plen == 0) return (vofs - 4);     /* Path has no length - we're there! */
 
     adjust = (path[plen] == '\\') ? 1 : 0;
 
@@ -1095,7 +1095,7 @@ int trav_path(struct hive * const hdesc, int vofs,
     if (lfkey->id == 0x6972) { /* ri struct need special parsing */
       /* Prime loop state */
 
-      rikey = (struct ri_key *)lfkey;
+      rikey = (const struct ri_key *)lfkey;
       ricnt = rikey->no_lis;
       r = 0;
       likey = (struct li_key *)(hdesc->buffer + rikey->hash[r].ofs_li + 0x1004);

@@ -1,7 +1,7 @@
 /*
  * Windows Registry FUSE Filesystem
  *
- * Copyright (C) 2014-2016 Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2014-2017 Jody Bruchon <jody@jodybruchon.com>
  *
  * Mounts a Windows registry hive file as a filesystem using FUSE
  * Registry keys become directories and values become files
@@ -33,7 +33,7 @@
 #define PATH_IS_ROOT(a) (a[0] == '/' && a[1] == '\0')
 
 /* Use Jody's block hash algorithm for the cache */
-#define cache_hash(a) jody_block_hash((hash_t *)a, 0, strlen(a))
+#define cache_hash(a) jody_block_hash((const hash_t *)a, 0, strlen(a))
 
 /* Value type file extensions */
 const char *ext[REG_MAX + 1] = {
@@ -51,9 +51,9 @@ const int ss = sizeof(slash) - 1;
 /* NT time to UNIX time */
 static time_t nttime_to_unixtime(char *timestamp)
 {
-	uint64_t newstamp;
+	int64_t newstamp;
 
-	memcpy(&newstamp, timestamp, sizeof(uint64_t));
+	memcpy(&newstamp, timestamp, sizeof(int64_t));
 	newstamp /= 10000000LL;
 	if (newstamp <= 11644473600LL) return 0;
 	newstamp -= 11644473600LL;
@@ -108,7 +108,7 @@ static int bytes2hex(char * const restrict string,
 	unsigned char c;
 
 	for(i = bytes - 1; i >= 0; i--) {
-		c = *((char *)data + i);
+		c = *((const char *)data + i);
 		string[j] = (c >> 4) + 48;
 		if (string[j] > 57) string[j] += 39;
 		j++;

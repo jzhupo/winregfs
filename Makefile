@@ -3,7 +3,9 @@ CFLAGS=-O2 -g
 #CFLAGS=-O2 -flto -ffunction-sections -fdata-sections -fno-unwind-tables -fno-asynchronous-unwind-tables
 #CFLAGS=-Og -g3
 BUILD_CFLAGS = -std=gnu99 -I. -D_FILE_OFFSET_BITS=64 -pipe -fstrict-aliasing
-BUILD_CFLAGS += -Wall -Wextra -Wstrict-aliasing -Wcast-align -pedantic -Wno-unused-parameter
+#BUILD_CFLAGS += -Wall -Wextra -Wstrict-aliasing -Wcast-align -pedantic -Wno-unused-parameter
+BUILD_CFLAGS = -Wall -Wextra -Wwrite-strings -Wcast-align -Wstrict-aliasing -pedantic -Wstrict-overflow -Wstrict-prototypes -Wpointer-arith -Wundef
+BUILD_CFLAGS += -Wshadow -Wfloat-equal -Wstrict-overflow=5 -Waggregate-return -Wcast-qual -Wswitch-default -Wswitch-enum -Wunreachable-code -Wformat=2 -Winit-self
 #LDFLAGS=-s
 #LDFLAGS=-flto -s -Wl,--gc-sections
 LDFLAGS=
