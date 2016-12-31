@@ -2370,11 +2370,6 @@ error_null_kv:
 
 /* ================================================================ */
 
-/* Code to export registry entries to .reg file initiated by
- * Leo von Klenze
- * Then expanded a bit to handle more types etc.
- */
-
 /*
  * converts a value string from an registry entry into a c string. It does not
  * use any encoding functions.
@@ -2391,23 +2386,23 @@ void string_regw2prog(char * const restrict cstring, const void * const restrict
     int i, k;
     int out_len = 0;
 
-    for(i = 0; i < len; i += 2)
+    for (i = 0; i < len; i += 2)
     {
-        unsigned v = ((unsigned char *)string)[i] + ((unsigned char *)string)[i+1] * 256u;
+        unsigned v = ((const unsigned char *)string)[i] + ((const unsigned char *)string)[i+1] * 256u;
         if (v < 128)
             out_len += 1;
-        else if(v < 0x800)
+        else if (v < 0x800)
             out_len += 2;
         else
             out_len += 3;
     }
 
-    for(i = 0, k = 0; i < len; i += 2)
+    for (i = 0, k = 0; i < len; i += 2)
     {
-        unsigned v = ((unsigned char *)string)[i] + ((unsigned char *)string)[i+1] * 256u;
+        unsigned v = ((const unsigned char *)string)[i] + ((const unsigned char *)string)[i+1] * 256u;
         if (v < 128)
             cstring[k++] = v;
-        else if(v < 0x800) {
+        else if (v < 0x800) {
             cstring[k++] = 0xc0 | (v >> 6);
             cstring[k++] = 0x80 | (v & 0x3f);
         } else {
