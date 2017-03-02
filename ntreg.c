@@ -223,6 +223,8 @@ int flush_dirty_pages(struct hive *hdesc)
 
 	LOAD_WD_LOGONLY();
 
+	DLOG("flush_dirty_pages called (%u pages)\n", hdesc->dirty_entries);
+
 	while (i < hdesc->dirty_entries) {
 		offset = hdesc->dirty[i] << 12;
 		fseek(hdesc->fp, offset, SEEK_SET);

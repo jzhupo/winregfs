@@ -477,9 +477,26 @@ static int winregfs_flush(const char *path, struct fuse_file_info *fi)
 {
 	LOAD_WD();
 
+	(void)path;
+	(void)fi;
+
 	DLOG("flush: writing dirty pages to disk\n");
 	return flush_dirty_pages(wd->hive);
 }
+
+
+/* Flush dirty data */
+static int winregfs_fsync(const char *unused1, int unused2, struct fuse_file_info *fi)
+{
+	LOAD_WD();
+	(void)unused1;
+	(void)unused2;
+	(void)fi;
+
+	DLOG("fsync: writing dirty pages to disk\n");
+	return flush_dirty_pages(wd->hive);
+}
+
 
 /* Get file attributes; size is adjusted for conversions we perform transparently */
 static int winregfs_getattr(const char * const restrict path,
@@ -622,6 +639,8 @@ static int winregfs_readdir(const char * const restrict path,
 
 	DLOG("readdir: %s  (+%d)\n", path, (int)offset);
 
+	(void)fi;
+
 	xstrcpy(keypath, path);
 	slash_fix(keypath);
 	unescape_fwdslash(keypath);
@@ -691,6 +710,8 @@ static int winregfs_open(const char * const restrict path,
 	LOAD_WD();
 
 	DLOG("open: %s\n", path);
+
+	(void)fi;
 
 	/* Read-only support (possible future feature) */
 /*	if ((fi->flags & 3) != O_RDONLY) {
@@ -765,6 +786,8 @@ static int winregfs_read(const char * const restrict path,
 	LOAD_WD();
 
 	DLOG("read: %s (%d + %d)\n", path, (int)size, (int)offset);
+
+	(void)fi;
 
 	sanitize_path(path, keypath, node);
 
@@ -890,6 +913,8 @@ static int winregfs_write(const char * const restrict path,
 	LOAD_WD();
 
 	DLOG("write: %s (%d + %d)\n", path, (int)size, (int)offset);
+
+	(void)fi;
 
 	if (wd->ro) goto error_rofs;
 
@@ -1086,6 +1111,8 @@ static int winregfs_mknod(const char * const restrict path,
 
 	DLOG("mknod: %s\n", path);
 
+	(void)dev;
+
 	if (wd->ro) {
 		LOG("mknod: read-only filesystem\n");
 		return -EROFS;
@@ -1186,6 +1213,8 @@ static int winregfs_mkdir(const char * const restrict path,
 
 	DLOG("mkdir: %s\n", path);
 
+	(void)mode;
+
 	if (wd->ro) {
 		LOG("mkdir: read-only filesystem\n");
 		return -EROFS;
@@ -1259,6 +1288,10 @@ static int winregfs_utimens(const char * const restrict path,
 		const struct timespec tv[2])
 {
 	LOAD_WD_LOGONLY();
+
+	(void)path;
+	(void)tv;
+
 	LOG("Called but not implemented: utimens\n");
 	return 0;
 }
@@ -1269,6 +1302,10 @@ static int winregfs_truncate(const char * const restrict path,
 		off_t len)
 {
 	LOAD_WD_LOGONLY();
+
+	(void)path;
+	(void)len;
+
 	LOG("Called but not implemented: truncate (len %d)\n", (int)len);
 	return 0;
 }
@@ -1291,8 +1328,6 @@ static int winregfs_statfs(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: statfs\n"); return -1; }
 static int winregfs_release(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: release\n"); return -1; }
-static int winregfs_fsync(void)
-{ LOAD_WD(); LOG("ERROR: Not implemented: fsync\n"); return -1; }
 static int winregfs_releasedir(void)
 { LOAD_WD(); LOG("ERROR: Not implemented: releasedir\n"); return -1; }
 static int winregfs_fsyncdir(void)
@@ -1325,9 +1360,9 @@ static struct fuse_operations winregfs_oper = {
 	.access		= winregfs_access,
 	.utimens	= winregfs_utimens,
 /*	.statfs		= winregfs_statfs, */
+	.fsync		= winregfs_fsync,
 	.flush		= winregfs_flush,
 /*	.release	= winregfs_release,
-	.fsync		= winregfs_fsync,
 	.releasedir	= winregfs_releasedir,
 	.fsyncdir	= winregfs_fsyncdir,
 	.ftruncate	= winregfs_ftruncate,
