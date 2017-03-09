@@ -68,7 +68,7 @@ static int find_nonhex(const char * const restrict string, int len)
 	int offset;
 
 	if (*string == 0) return -1;
-	for(offset = 0; offset < len; offset++) {
+	for (offset = 0; offset < len; offset++) {
 		if (*(string + offset) == 0) return offset;
 		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
 		if (q > 48) q -= 39;
@@ -88,7 +88,7 @@ static int convert_hex(const char * const restrict string,
 	*dest = 0;
 
 	if (*string == 0) return -1;
-	for(offset = 0; offset < len; offset++) {
+	for (offset = 0; offset < len; offset++) {
 		if (*(string + offset) == 0) return 0;
 		*dest <<= 4;  /* Shift for each character processed */
 		q = *(string + offset) - 48;  /* ASCII 0-9 to real 0-9 */
@@ -107,7 +107,7 @@ static int bytes2hex(char * const restrict string,
 	int i, j = 0;
 	unsigned char c;
 
-	for(i = bytes - 1; i >= 0; i--) {
+	for (i = bytes - 1; i >= 0; i--) {
 		c = *((const char *)data + i);
 		string[j] = (c >> 4) + 48;
 		if (string[j] > 57) string[j] += 39;
@@ -294,7 +294,7 @@ void invalidate_nk_cache(void)
 
 	DLOG("winregfs cache invalidated\n");
 	LOCK();
-	for(i=0; i < CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
+	for (i=0; i < CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
 	UNLOCK();
 	return;
 }
@@ -582,7 +582,7 @@ static int winregfs_getattr(const char * const restrict path,
 getattr_wildcard:
 				stbuf->st_mode = S_IFREG | (0666 & attrmask);
 				stbuf->st_nlink = 1;
-				switch(vex.type) {
+				switch (vex.type) {
 				case REG_QWORD:
 					stbuf->st_size = 17;
 					break;
@@ -934,9 +934,9 @@ static int winregfs_write(const char * const restrict path,
 	if (!kv) goto error_metadata;
 
 	newsize = offset + size;
-	if(newsize > 8192 || kv->len > 8192) goto error_8k_limit;
+	if (newsize > 8192 || kv->len > 8192) goto error_8k_limit;
 
-	switch(type) {
+	switch (type) {
 	case REG_DWORD:
 		if (offset != 0 && kv->len > newsize) newsize = kv->len;
 		if (offset > kv->len) goto error_long_write;
@@ -1016,7 +1016,7 @@ static int winregfs_write(const char * const restrict path,
 		newkv->len = newsize << 1;
 		/* Truncate string at first newline */
 		if (type != REG_MULTI_SZ) {
-			for(i = 0; i < newsize; i++) {
+			for (i = 0; i < newsize; i++) {
 				if (newbuf[i] == '\n' || newbuf[i] == '\r') {
 					newkv->len = (i + 1) << 1;
 					break;
@@ -1024,7 +1024,7 @@ static int winregfs_write(const char * const restrict path,
 			}
 		} else {
 			/* MULTI_SZ is icky. Newlines become nulls! */
-			for(i = 0; i < newsize; i++) {
+			for (i = 0; i < newsize; i++) {
 				if (newbuf[i] == '\n' || newbuf[i] == '\r')
 					newbuf[i] = '\0';
 			}
@@ -1032,7 +1032,7 @@ static int winregfs_write(const char * const restrict path,
 		cheap_ascii2uni(newbuf, (char *)newkv->data, newsize);
 		free(newbuf);
 		i = put_buf2val(wd->hive, newkv, nkofs, node, type, TPF_VK_EXACT);
-		if(i != newkv->len) goto error_short_write;
+		if (i != newkv->len) goto error_short_write;
 		free(newkv->data);
 		free(newkv);
 		free(kv->data);
