@@ -278,6 +278,7 @@ static void nk_cache_stats(struct winregfs_data * const restrict wd,
 	case HASH_FAIL:
 		wd->nk_hash_fail++;
 		break;
+	default: break;
 	}
 # if ENABLE_LOGGING
 	log_nk_cache_stats(wd);
@@ -345,8 +346,8 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 					UNLOCK();
 					return nkofs;
 				}
-			} else { nk_cache_stats(wd, HASH_FAIL) }
-		} else { nk_cache_stats(wd, HASH_MISS) }
+			} else { nk_cache_stats(wd, HASH_FAIL); }
+		} else { nk_cache_stats(wd, HASH_MISS); }
 		if (update_cache) return 0;
 		/* If we've hit item 0, return the cache ring position to the end of the ring */
 		if (!i) i = CACHE_ITEMS;
