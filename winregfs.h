@@ -124,6 +124,7 @@ struct winregfs_data {
 #  define LOG_IS_USED 1
 #  define DLOG(...) printf(__VA_ARGS__);
 # else
+#  define LOG_IS_USED 0
 #  define DLOG(...)
 # endif
 #endif

@@ -248,12 +248,12 @@ static void log_nk_cache_stats(struct winregfs_data * const restrict wd)
 	LOG("cache: at pos %d, %d miss, %d hit (%3.2f%%); ",
 			wd->nk_cache_pos,
 			wd->nk_cache_miss, wd->nk_cache_hit,
-			((wd->nk_cache_hit * 100) / ((c>0) ? c : 1)));
+			((wd->nk_cache_hit * 100) / ((c > 0) ? c : 1)));
 	LOG("hash: %d miss, %d hit (%3.2f%%), %d fail (%3.2f%%)\n",
 			wd->nk_hash_miss, wd->nk_hash_hit,
-			((wd->nk_hash_hit * 100) / ((h>0) ? h : 1)),
+			((wd->nk_hash_hit * 100) / ((h > 0) ? h : 1)),
 			wd->nk_hash_fail,
-			((wd->nk_hash_fail * 100) / ((h>0) ? h : 1)));
+			((wd->nk_hash_fail * 100) / ((h > 0) ? h : 1)));
 }
 # endif
 
@@ -640,6 +640,7 @@ static int winregfs_readdir(const char * const restrict path,
 	DLOG("readdir: %s  (+%d)\n", path, (int)offset);
 
 	(void)fi;
+	(void)offset;
 
 	xstrcpy(keypath, path);
 	slash_fix(keypath);

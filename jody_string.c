@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 /* Like strncasecmp() but only tests for equality */
-int strncaseeq(const char *s1, const char *s2, size_t len)
+extern int strncaseeq(const char *s1, const char *s2, size_t len)
 {
 	size_t i = 0;
 
@@ -33,7 +33,7 @@ int strncaseeq(const char *s1, const char *s2, size_t len)
 }
 
 /* Like strcasecmp() but only tests for equality */
-int strcaseeq(const char *s1, const char *s2)
+extern int strcaseeq(const char *s1, const char *s2)
 {
 	while (1) {
 		if (*s1 != *s2) {
@@ -56,7 +56,7 @@ int strcaseeq(const char *s1, const char *s2)
 
 
 /* Like strncmp() but only tests for equality */
-int strneq(const char *s1, const char *s2, size_t len)
+extern int strneq(const char *s1, const char *s2, size_t len)
 {
 	size_t i = 0;
 
@@ -73,7 +73,7 @@ int strneq(const char *s1, const char *s2, size_t len)
 
 
 /* Like strcmp() but only tests for equality */
-int streq(const char *s1, const char *s2)
+extern int streq(const char *s1, const char *s2)
 {
 	while (*s1 != '\0' && *s2 != '\0') {
 		if (*s1 != *s2) return 1;

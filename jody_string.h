@@ -14,10 +14,10 @@ extern "C" {
 #include <stdint.h>
 #include <unistd.h>
 
-int strncaseeq(const char *s1, const char *s2, size_t len);
-int strcaseeq(const char *s1, const char *s2);
-int strneq(const char *s1, const char *s2, size_t len);
-int streq(const char *s1, const char *s2);
+extern int strncaseeq(const char *s1, const char *s2, size_t len);
+extern int strcaseeq(const char *s1, const char *s2);
+extern int strneq(const char *s1, const char *s2, size_t len);
+extern int streq(const char *s1, const char *s2);
 
 
 /* Inline strcpy() */
