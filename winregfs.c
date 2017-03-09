@@ -255,7 +255,7 @@ static void log_nk_cache_stats(struct winregfs_data * const restrict wd)
 			wd->nk_hash_fail,
 			((wd->nk_hash_fail * 100) / ((h > 0) ? h : 1)));
 }
-# endif
+# endif /* ENABLE_LOGGING */
 
 
 /* Collect information on NK offset cache success/failure */
@@ -295,7 +295,7 @@ void invalidate_nk_cache(void)
 
 	DLOG("winregfs cache invalidated\n");
 	LOCK();
-	for (i=0; i < CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
+	for (i=0; i < NKOFS_CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
 	UNLOCK();
 	return;
 }
@@ -350,7 +350,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 		} else { nk_cache_stats(wd, HASH_MISS); }
 		if (update_cache) return 0;
 		/* If we've hit item 0, return the cache ring position to the end of the ring */
-		if (!i) i = CACHE_ITEMS;
+		if (!i) i = NKOFS_CACHE_ITEMS;
 		i--;
 		if (i == wd->nk_cache_pos) break;
 	}
@@ -374,7 +374,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 	/* Increment cache ring position, place new cache item */
 	LOCK();
 
-	if (++wd->nk_cache_pos >= CACHE_ITEMS) wd->nk_cache_pos = 0;
+	if (++wd->nk_cache_pos >= NKOFS_CACHE_ITEMS) wd->nk_cache_pos = 0;
 	xstrcpy(wd->nk_last_path[wd->nk_cache_pos], keypath);
 	wd->nk_last_nkofs[wd->nk_cache_pos] = nkofs;
 	wd->nk_last_key[wd->nk_cache_pos] = *key;
@@ -1420,9 +1420,9 @@ int main(int argc, char *argv[])
 #endif
 #if ENABLE_NKOFS_CACHE
 	/* malloc() and initialize cache pointers/data */
-	wd->nk_last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * CACHE_ITEMS);
+	wd->nk_last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * NKOFS_CACHE_ITEMS);
 	if (!wd->nk_last_path[0]) goto oom;
-	for (i=0; i < CACHE_ITEMS; i++) {
+	for (i=0; i < NKOFS_CACHE_ITEMS; i++) {
 		wd->nk_last_path[i] = (wd->nk_last_path[0] + (ABSPATHLEN * i));
 		*wd->nk_last_path[i] = '\0';
 		wd->nk_hash[i] = 0;
@@ -1432,7 +1432,7 @@ int main(int argc, char *argv[])
 	if (!wd->lock) goto oom;
 	pthread_mutex_init(wd->lock, NULL);
 # endif /* THREADED */
-	wd->nk_cache_pos = CACHE_ITEMS - 1;
+	wd->nk_cache_pos = NKOFS_CACHE_ITEMS - 1;
 # if ENABLE_NKOFS_CACHE_STATS
 	wd->nk_cache_miss = 0;
 	wd->nk_cache_hit = 0;

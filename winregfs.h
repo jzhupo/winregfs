@@ -36,8 +36,8 @@
 # endif
 #endif
 #if ENABLE_NKOFS_CACHE
-# if !CACHE_ITEMS
-# error ENABLE_NKOFS_CACHE enabled; CACHE_ITEMS must be set and non-zero
+# if !NKOFS_CACHE_ITEMS
+# error ENABLE_NKOFS_CACHE enabled; NKOFS_CACHE_ITEMS must be set and non-zero
 # endif
 #endif
 #ifdef FSCK_WINREGFS
@@ -67,12 +67,12 @@ struct winregfs_data {
 	FILE *log;
 #endif
 #if ENABLE_NKOFS_CACHE
-	/* Cache previous nkofs/path/key sets up to CACHE_ITEMS */
+	/* Cache previous nkofs/path/key sets up to NKOFS_CACHE_ITEMS */
 	int nk_cache_pos;
-	char *nk_last_path[CACHE_ITEMS];
-	int nk_last_nkofs[CACHE_ITEMS];
-	struct nk_key *nk_last_key[CACHE_ITEMS];
-	hash_t nk_hash[CACHE_ITEMS];
+	char *nk_last_path[NKOFS_CACHE_ITEMS];
+	int nk_last_nkofs[NKOFS_CACHE_ITEMS];
+	struct nk_key *nk_last_key[NKOFS_CACHE_ITEMS];
+	hash_t nk_hash[NKOFS_CACHE_ITEMS];
 # if ENABLE_NKOFS_CACHE_STATS
 	int delay;  /* Cache log throttling interval */
 	int nk_cache_miss;
@@ -124,11 +124,13 @@ struct winregfs_data {
 #  define LOG_IS_USED 1
 #  define DLOG(...) printf(__VA_ARGS__);
 # else
-#  define LOG_IS_USED 0
 #  define DLOG(...)
 # endif
 #endif
 
+#ifndef LOG_IS_USED
+#define LOG_IS_USED 0
+#endif
 
 /* Threaded mode mutex */
 #if ENABLE_THREADED
