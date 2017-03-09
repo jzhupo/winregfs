@@ -718,7 +718,6 @@ int free_block(struct hive * const hdesc, int blk)
  *         set position to 0 to start.
  * sptr  = pointer to struct to hold a single result
  * returns: -1 = error. 0 = end of key. 1 = more subkeys to scan
- * NOTE: caller must free the name-buffer (struct ex_data *name)
  */
 int ex_next_n(const struct hive * const hdesc, int nkofs,
 		int * const restrict count,
@@ -782,6 +781,7 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
   sptr->nk = newnkkey;
 
   DLOG("ex_next_n: sptr->nk 0x%p, newnkkey 0x%p, newnkofs 0x%d\n", (void *)sptr->nk, (void *)newnkkey, newnkofs);
+  /* Verify it's an NK */
   if (newnkkey->id != 0x6b6e) goto error_not_nk2;
   else {
     if (newnkkey->len_name <= 0) {
@@ -971,7 +971,9 @@ static int vlist_find(const struct hive * const restrict hdesc,
   int32_t *vlistkey;
   int approx = -1;
 
+#if ENABLE_DEBUG_LOGGING
   LOAD_WD_LOGONLY();
+#endif
 
   len = strlen(name);
   vlistkey = (int32_t *)(hdesc->buffer + vlistofs);
