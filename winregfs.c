@@ -1422,7 +1422,7 @@ int main(int argc, char *argv[])
 	/* malloc() and initialize cache pointers/data */
 	wd->nk_last_path[0] = (char *)malloc(sizeof(char) * ABSPATHLEN * NKOFS_CACHE_ITEMS);
 	if (!wd->nk_last_path[0]) goto oom;
-	for (i=0; i < NKOFS_CACHE_ITEMS; i++) {
+	for (i = 0; i < NKOFS_CACHE_ITEMS; i++) {
 		wd->nk_last_path[i] = (wd->nk_last_path[0] + (ABSPATHLEN * i));
 		*wd->nk_last_path[i] = '\0';
 		wd->nk_hash[i] = 0;
@@ -1458,6 +1458,12 @@ int main(int argc, char *argv[])
 #if ENABLE_LOGGING
 	LOG("winregfs terminated OK\n");
 	fclose(wd->log);
+#endif
+#if ENABLE_NKOFS_CACHE
+	free(wd->nk_last_path[0]);
+# if ENABLE_THREADED
+	free(wd->lock);
+# endif
 #endif
 	free(wd);
 	return i;
