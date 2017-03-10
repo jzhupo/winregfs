@@ -10,6 +10,6 @@
 
 #define ENABLE_NKOFS_CACHE 1
 #define ENABLE_NKOFS_CACHE_STATS 0
-#define CACHE_ITEMS 64
+#define NKOFS_CACHE_ITEMS 64
 
 #endif	/* CONFIG_H */
