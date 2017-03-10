@@ -1,7 +1,7 @@
 .\" Copyright (c) 2014-2017 Jody Bruchon
 .\" Licensed under the GNU General Public License v2
 .\"
-.TH winregfs 8 "1 May 2014" "mount.winregfs"
+.TH winregfs 8 "10 Mar 2017" "mount.winregfs"
 .SH NAME
 winregfs \- Windows registry FUSE filesystem
 .SH SYNOPSIS
@@ -13,11 +13,37 @@ winregfs \- Windows registry FUSE filesystem
 Windows registry hive files as ordinary filesystems. Registry hive file 
 editing can be performed with ordinary shell scripts and command-line tools 
 once mounted.
+
+Registry values are shown as files with a file extension corresponding to
+the data type of the value. These are generally named after the REG_* types
+seen in the Windows registry editor. For example, \fBdw\fP is a DWORD,
+\fBsz\fP is a string, \fBesz\fP is an expanding string, \fBbin\fP is a raw
+binary value, and \fBmsz\fP is a multi-line string. Types different from
+the "standard" types may appear in rare instances.
+
+Because registry keys and values can have forward slashes in their names,
+there is a special word \fB_SLASH_\fP that is used in place of any real
+slashes and is converted back-and-forth automatically.
+
+Opening a value's name without the extension is supported, but you should
+always use the extension if possible to avoid ambiguity issues.
 .SH KNOWN ISSUES
 \fBwinregfs\fP does not currently support writing value data greater than 
 8,192 bytes (8 KiB) in size. If such a write occurs, the data will be 
 truncated and an error will be returned. Unicode data is not currently 
 supported, partly due to a lack of support in the ntreg library.
+
+Incorrect or unrecognized structures in a registry file may cause this
+program to crash. It is not recommended for use on important data and
+while most operations generally work as expected, you use it at your own
+risk. Please report any bugs you encounter.
+
+\fBwinregfs\fP loads the entire hive file into one large chunk of memory.
+This is a side effect of adopting the low-level registry library from the
+program \fBchntpw\fP. There is a silent delay as the hive is loaded and
+if the file is large enough there is a chance of failure due to being
+unable to allocate enough contiguous memory. Changing this behavior is a
+very difficult task due to how the ntreg library works with the data.
 .SH SEE ALSO
 .BR fusermount (8), 
 .BR fsck.winregfs (8)
