@@ -22,7 +22,7 @@
  * See file LGPL.txt for the full license.
  *
  * Modified for Windows Registry FUSE filesystem project "winregfs"
- * by Jody Bruchon <jody@jodybruchon.com> on 2014-04-16
+ * by Jody Bruchon <jody@jodybruchon.com> since 2014-04-16
  *
  */
 
