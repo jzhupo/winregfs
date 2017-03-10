@@ -20,13 +20,17 @@
  * See file LGPL.txt for the full license.
  * 
  * Modified for Windows Registry FUSE filesystem project "winregfs"
- * by Jody Bruchon <jody@jodybruchon.com> on 2014-04-16
+ * by Jody Bruchon <jody@jodybruchon.com> since 2014-04-16
  *
  */ 
 
 
 #ifndef NTREG_H
 #define NTREG_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define KEY_ROOT   0x2c         /* Type ID of ROOT key node */
 #define KEY_NORMAL 0x20       /* Normal nk key */
@@ -400,5 +404,9 @@ int del_key(struct hive *hdesc, int nkofs, char *name);
 int add_bin(struct hive *hdesc, int size);
 
 void string_regw2prog(char * const restrict cstring, const void * const restrict string, int len);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif	/* NTREG_H */
