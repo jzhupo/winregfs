@@ -132,6 +132,14 @@ static int process_ext(char * const node)
 	if (str_ext == NULL) return -1;
 	*str_ext = '\0';
 	str_ext++;
+
+	/* Handle non-standard types with 0x prefix */
+	if (*str_ext == '0' && *(str_ext + 1) == 'x') {
+		i = strtol(str_ext, NULL, 0);
+		return i;
+	}
+
+	/* Handle standard types */
 	for (; i < REG_MAX; i++) {
 		if (!strcaseeq(str_ext, ext[i])) return i;
 	}
@@ -969,6 +977,7 @@ static int winregfs_write(const char * const restrict path,
 		if (!i) goto error_write;
 		break;
 
+	default: /* All non-standard types are treated as REG_BINARY */
 	case REG_BINARY:
 		if (offset != 0 && kv->len > newsize) newsize = kv->len;
 		if (offset > kv->len) goto error_long_write;
@@ -1042,9 +1051,6 @@ static int winregfs_write(const char * const restrict path,
 
 		if (!i) goto error_write;
 		break;
-	default:
-		goto error_type_not_sup;
-		break;
 	}
 
 	if (write_hive(wd->hive)) {
@@ -1094,10 +1100,6 @@ error_short_write:
 	LOG("write: short write: %s (%d/%d)\n", path, i, (int)newkv->len);
 	free(newkv->data); free(newkv); free(kv->data); free(kv);
 	return -ENOSPC;
-error_type_not_sup:
-	LOG("write: type %d not supported: %s\n", type, path);
-	free(kv->data); free(kv);
-	return -EINVAL;
 }
 
 
@@ -1136,6 +1138,7 @@ static int winregfs_mknod(const char * const restrict path,
 	sanitize_path(path, keypath, node);
 
 	ktype = process_ext(node);
+	DLOG("mknod: ktype: %x\n", ktype);
 	if (ktype < 0) {
 		LOG("mknod: bad extension: %s\n", path);
 		return -EPERM;

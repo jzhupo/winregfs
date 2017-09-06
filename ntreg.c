@@ -49,8 +49,6 @@
 #define DLOG(...) printf(__VA_ARGS__)
 #endif
 
-static char *blank = '\0';
-
 static inline int de_escape(char *s, int wide);
 
 const char *val_types[REG_MAX+1] = {
@@ -1268,7 +1266,7 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 	return -1;
   }
 
-  vkofs +=4;
+  vkofs += 4;
   if (vkofs > hdesc->size) {
 	  LOG("get_val_len: error: 'vk' offset too large: %x\n", vkofs);
 	  return -1;
@@ -1276,7 +1274,7 @@ int get_val_len(struct hive *hdesc, int vofs, char *path, int exact)
 
   vkkey = (struct vk_key *)(hdesc->buffer + vkofs);
   if (vkkey->id != 0x6b76) {
-    LOG("get_val_len: Cell ID is not 'vk': offset 0x%x, subpath \\%s\n", vkofs, path);
+    LOG("get_val_len: cell ID is not 'vk': offset 0x%x, subpath \\%s\n", vkofs, path);
     return -1;
   }
 
@@ -1614,6 +1612,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
   LOAD_WD_LOGONLY();
 
   if (!name || !*name) goto error_null_name;
+  DLOG("add_value: nkofs %d, name '%s', type 0x%x\n", nkofs, name, type);
   nk = (struct nk_key *)(hdesc->buffer + nkofs);
   if (nk->id != 0x6b6e) goto error_not_nk;
 
@@ -1621,7 +1620,7 @@ struct vk_key *add_value(struct hive *hdesc, int nkofs, char *name, int type)
     if(!del_value(hdesc, nkofs, name)) goto error_del_value;
   }
 
-  if (!streq(name, "@")) name = blank;
+  if (!streq(name, "@")) *name = '\0';
 
   if (nk->no_values) oldvlist = nk->ofs_vallist;
 
@@ -1740,7 +1739,7 @@ int del_value(struct hive *hdesc, int nkofs, char *name)
 	  LOG("del_value: Null or empty name given\n");
 	  return 1;
   }
-  if (!streq(name, "@")) name = blank;
+  if (!streq(name, "@")) *name = '\0';
   nk = (struct nk_key *)(hdesc->buffer + nkofs);
   if (nk->id != 0x6b6e) {
     LOG("del_value: Key pointer not to 'nk' node: %s\n", name);
