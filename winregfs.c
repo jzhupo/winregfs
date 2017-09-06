@@ -140,18 +140,23 @@ static int process_ext(char * const node)
 
 
 /* Add the type extension to the registry value name */
-static int add_val_ext(char * const restrict filename,
+static int add_val_ext(char * restrict filename,
 		const struct vex_data * const restrict vex)
 {
 	LOAD_WD_LOGONLY();
 
-	if (vex->type > REG_MAX) {
-		LOG("add_val_ext: error: value type out of range: %s\n", filename);
-		return 1;
-	}
-	xstrcpy(filename, vex->name);
+	DLOG("add_val_ext: %s.", filename);
+	if (*(vex->name) == '\0') xstrcpy(filename, "@");
+	else xstrcpy(filename, vex->name);
 	strncat(filename, ".", ABSPATHLEN);
-	strncat(filename, ext[vex->type], ABSPATHLEN);
+	if (vex->type <= REG_MAX) {
+		strncat(filename, ext[vex->type], ABSPATHLEN);
+		DLOG("%s\n", ext[vex->type]);
+	} else {
+		while (*filename != '\0') filename++;
+		snprintf(filename, 10, "0x%x", vex->type);
+		DLOG("0x%x\n", vex->type);
+	}
 	return 0;
 }
 
@@ -453,8 +458,8 @@ static int winregfs_access(const char * const restrict path, int mode)
 	count = 0;
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
-			else add_val_ext(filename, &vex);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			add_val_ext(filename, &vex);
 			if (!strcaseeq(node, filename)) {
 				if (!(mode & X_OK)) {
 					DLOG("access: OK: ex_v: nkofs %x vkofs %x size %d c %d\n",
@@ -562,8 +567,8 @@ static int winregfs_getattr(const char * const restrict path,
 	DLOG("getattr: key->no_values = %d\n", key->no_values);
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
-			else add_val_ext(filename, &vex);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
@@ -670,18 +675,14 @@ static int winregfs_readdir(const char * const restrict path,
 	DLOG("readdir: key->no_values = %d\n", key->no_values);
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) {
-				xstrcpy(filename, "@.sz");
+			DLOG("readdir: next_v: %x %s\n", vex.type, vex.name);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			if (!add_val_ext(filename, &vex)) {
+				escape_fwdslash(filename);
 				DLOG("readdir: v_filler: %s\n", filename);
 				filler(buf, filename, NULL, 0);
 			} else {
-				if (!add_val_ext(filename, &vex)) {
-					escape_fwdslash(filename);
-					DLOG("readdir: v_filler: %s\n", filename);
-					filler(buf, filename, NULL, 0);
-				} else {
-					LOG("readdir: error reading %s/%s\n", path, filename);
-				}
+				LOG("readdir: error reading %s/%s\n", path, filename);
 			}
 		}
 	}
@@ -745,8 +746,8 @@ static int winregfs_open(const char * const restrict path,
 	count = 0;
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
-			if (strlen(vex.name) == 0) xstrcpy(filename, "@.sz");
-			else add_val_ext(filename, &vex);
+			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
 			if (!strrchr(node, '.')) {
