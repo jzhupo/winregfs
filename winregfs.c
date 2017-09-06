@@ -153,6 +153,7 @@ static int add_val_ext(char * restrict filename,
 {
 	LOAD_WD_LOGONLY();
 
+	if (filename == NULL) return -1;
 	DLOG("add_val_ext: %s.", filename);
 	if (*(vex->name) == '\0') xstrcpy(filename, "@");
 	else xstrcpy(filename, vex->name);
@@ -162,7 +163,7 @@ static int add_val_ext(char * restrict filename,
 		DLOG("%s\n", ext[vex->type]);
 	} else {
 		while (*filename != '\0') filename++;
-		snprintf(filename, 10, "0x%x", vex->type);
+		snprintf(filename, 11, "0x%x", vex->type);
 		DLOG("0x%x\n", vex->type);
 	}
 	return 0;
@@ -467,6 +468,7 @@ static int winregfs_access(const char * const restrict path, int mode)
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			else *filename = '\0';
 			add_val_ext(filename, &vex);
 			if (!strcaseeq(node, filename)) {
 				if (!(mode & X_OK)) {
@@ -576,6 +578,7 @@ static int winregfs_getattr(const char * const restrict path,
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			else *filename = '\0';
 			add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
@@ -755,6 +758,7 @@ static int winregfs_open(const char * const restrict path,
 	if (key->no_values) {
 		while (ex_next_v(wd->hive, nkofs, &count, &vex) > 0) {
 			if (strlen(vex.name) == 0) xstrcpy(filename, "@");
+			else *filename = '\0';
 			add_val_ext(filename, &vex);
 
 			/* Wildcard accesses with no extension */
