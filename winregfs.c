@@ -33,7 +33,7 @@
 #define PATH_IS_ROOT(a) (a[0] == '/' && a[1] == '\0')
 
 /* Use Jody's block hash algorithm for the cache */
-#define cache_hash(a) jody_block_hash((const hash_t *)a, 0, strlen(a))
+#define cache_hash(a) jody_block_hash((const jodyhash_t *)a, 0, strlen(a))
 
 /* Value type file extensions */
 const char *ext[REG_MAX + 1] = {
@@ -327,7 +327,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 
 #if ENABLE_NKOFS_CACHE
 	int i;
-	hash_t hash;
+	jodyhash_t hash;
 
 	/* Check the cached path to avoid extra traversals */
 	hash = cache_hash(keypath);

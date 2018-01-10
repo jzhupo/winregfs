@@ -72,7 +72,7 @@ struct winregfs_data {
 	char *nk_last_path[NKOFS_CACHE_ITEMS];
 	int nk_last_nkofs[NKOFS_CACHE_ITEMS];
 	struct nk_key *nk_last_key[NKOFS_CACHE_ITEMS];
-	hash_t nk_hash[NKOFS_CACHE_ITEMS];
+	jodyhash_t nk_hash[NKOFS_CACHE_ITEMS];
 # if ENABLE_NKOFS_CACHE_STATS
 	int delay;  /* Cache log throttling interval */
 	int nk_cache_miss;
