@@ -49,6 +49,11 @@ A few keys and value names in the Windows registry such as MIME types contain
 forward slash characters; winregfs substitutes "_SLASH_" where a forward
 slash appears in names.
 
+********** WARNING **********
+ALWAYS BACK UP REGISTRY HIVES BEFORE EDITING THEM WITH WINREGFS! THIS SOFTWARE
+IS NOT PRODUCTION-SAFE! IT WORKS, BUT HAS SEVERAL BUGS! YOU HAVE BEEN WARNED!
+********** WARNING **********
+
 To use winregfs, make a directory to mount on and point it to the registry
 hive of interest:
 

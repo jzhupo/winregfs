@@ -1461,6 +1461,7 @@ int main(int argc, char *argv[])
 #if ENABLE_LOGGING
 	LOG("winregfs %s (%s) started for hive %s\n", VER, VERDATE, file);
 #endif
+	fprintf(stderr, "Reminder: ALWAYS back up hives before using winregfs 0.x on them.\n");
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	close_hive(wd->hive);
 #if ENABLE_LOGGING
