@@ -2,13 +2,12 @@
  * Windows Registry FUSE Filesystem
  *
  * Copyright (C) 2014-2020 Jody Bruchon <jody@jodybruchon.com>
+ * Released under The MIT License
  *
  * Mounts a Windows registry hive file as a filesystem using FUSE
  * Registry keys become directories and values become files
  * Value files have an extension based on the value type
  * (blah.sz = REG_SZ string; blah.dw = REG_DWORD 32-bit number)
- *
- * Licensed under GNU GPL v2. See LICENSE and README for details.
  *
  */
 

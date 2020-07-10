@@ -1,7 +1,7 @@
 /*
  * Jody Bruchon's string function library  <jody@jodybruchon.com>
  * Copyright (C) 2015-2020
- * Distributed under the GNU General Public License version 2
+ * Released under The MIT License
  */
 
 #include <stdint.h>
