@@ -21,7 +21,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * Lesser General Public License for more details.
- * See file LGPL.txt for the full license.
+ * See file LICENSE-LGPL for the full license.
  *
  * Modified for Windows Registry FUSE filesystem project "winregfs"
  * by Jody Bruchon <jody@jodybruchon.com> since 2014-04-16

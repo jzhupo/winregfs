@@ -154,6 +154,7 @@ You can probably figure out what to do with it from here. ;-)
 LICENSING NOTICE
 ----------------
 
-ntreg.c and ntreg.h are distributed under the terms of the LGPL as described
-in LGPL.txt while all other winregfs components are licensed under the terms
-of the GNU GPL as described in LICENSE.
+ntreg.c and ntreg.h are distributed under the terms of the LGPL v2.1 (see
+LICENSE-LGPLv2.1); all other components are distributed under the terms of
+The MIT License (see LICENSE-MIT). Any binaries compiled from this code are
+under LGPL v2.1.
