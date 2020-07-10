@@ -9,6 +9,8 @@
  *
  * NTREG - Window registry file reader / writer library
  * Copyright (c) 1997-2014 Petter Nordahl-Hagen.
+ * Heavily modified for winregfs (https://github.com/jbruchon/winregfs)
+ * by Jody Bruchon <jody@jodybruchon.com> (C) 2014-2020
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
