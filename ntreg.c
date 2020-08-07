@@ -777,6 +777,8 @@ int ex_next_n(const struct hive * const hdesc, int nkofs,
   if (hdesc->size < newnkofs) goto error_nk_eof;
   sptr->nkoffs = newnkofs;
   newnkkey = (struct nk_key *)(hdesc->buffer + newnkofs + 4);
+  if ((uintptr_t)newnkkey > ((uintptr_t)hdesc->buffer + hdesc->size) ||
+      (uintptr_t)newnkkey < (uintptr_t)hdesc->buffer) goto error_newnkkey_bounds;
   sptr->nk = newnkkey;
 
   DLOG("ex_next_n: sptr->nk 0x%p, newnkkey 0x%p, newnkofs 0x%d\n", (void *)sptr->nk, (void *)newnkkey, newnkofs);
@@ -813,6 +815,9 @@ error_li_eof:
   return -1;
 error_nk_eof:
   LOG("ex_next_n: error: new 'nk' pointer beyond end of file\n");
+  return -1;
+error_newnkkey_bounds:
+  LOG("ex_next_n: error: new 'nk' key pointer out of bounds\n");
   return -1;
 }
 
@@ -901,7 +906,7 @@ error_key_offset_size:
   LOG("ex_next_v: value key offset too large\n");
   return -1;
 error_not_vk:
-  LOG("ex_next_v: hit non-VK node during scan at offset 0x%0x\n", vkofs);
+  LOG("ex_next_v: hit non-VK node (0x%x) during scan at offset 0x%0x\n", vkofs, vkkey->id);
   return -1;
 }
 

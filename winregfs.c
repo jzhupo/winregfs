@@ -153,7 +153,7 @@ static int add_val_ext(char * restrict filename,
 {
 	LOAD_WD_LOGONLY();
 
-	if (filename == NULL) return -1;
+	if (filename == NULL || vex == NULL || vex->name == NULL) return -1;
 	DLOG("add_val_ext: %s.", filename);
 	if (*(vex->name) == '\0') xstrcpy(filename, "@");
 	else xstrcpy(filename, vex->name);

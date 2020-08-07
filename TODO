@@ -1,14 +1,13 @@
           Windows Registry FUSE Filesystem TODO list
           ------------------------------------------
 
+* Fix issue where empty (default) value (@) can't be opened
+
 * Fix 8 KiB file write limit issue (may really be in ntreg.c)
   For now an error is issued on attempts to write >8192 bytes
   since there are extremely few values that contain this much
   data; the XP compatibility shim cache is pretty much the
   only value of such a size (all others are <6000 bytes)
-
-* Allow arbitrary value types using a hexadecimal extension
-(used in SAM and some MS Click-to-Run registry keys)
 
 * Unicode and non-ASCII character support
   This is not only useful for non-Latin characters, it also
