@@ -4,6 +4,9 @@
      If you have any questions, comments, or patches, send me an email:
                                jody@jodybruchon.com
 
+    This program's components are distributed under either LGPL v2.1 or
+       The MIT License. Compiled binaries thus fall under LGPL v2.1.
+
 One of the most difficult things to deal with in years of writing Linux
 utilities to work with and repair Windows PCs is the Windows registry.
 While many excellent tools exist to work with NTFS filesystems and to change
@@ -48,6 +51,11 @@ checked (i.e. in a script) for success or failure of the check.
 A few keys and value names in the Windows registry such as MIME types contain
 forward slash characters; winregfs substitutes "_SLASH_" where a forward
 slash appears in names.
+
+********** WARNING **********
+ALWAYS BACK UP REGISTRY HIVES BEFORE EDITING THEM WITH WINREGFS! THIS SOFTWARE
+IS NOT PRODUCTION-SAFE! IT WORKS, BUT HAS SEVERAL BUGS! YOU HAVE BEEN WARNED!
+********** WARNING **********
 
 To use winregfs, make a directory to mount on and point it to the registry
 hive of interest:
@@ -146,6 +154,7 @@ You can probably figure out what to do with it from here. ;-)
 LICENSING NOTICE
 ----------------
 
-ntreg.c and ntreg.h are distributed under the terms of the LGPL as described
-in LGPL.txt while all other winregfs components are licensed under the terms
-of the GNU GPL as described in LICENSE.
+ntreg.c and ntreg.h are distributed under the terms of the LGPL v2.1 (see
+LICENSE-LGPLv2.1); all other components are distributed under the terms of
+The MIT License (see LICENSE-MIT). Any binaries compiled from this code are
+under LGPL v2.1.

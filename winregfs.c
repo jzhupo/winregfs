@@ -1,14 +1,13 @@
 /*
  * Windows Registry FUSE Filesystem
  *
- * Copyright (C) 2014-2017 Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2014-2020 Jody Bruchon <jody@jodybruchon.com>
+ * Released under The MIT License
  *
  * Mounts a Windows registry hive file as a filesystem using FUSE
  * Registry keys become directories and values become files
  * Value files have an extension based on the value type
  * (blah.sz = REG_SZ string; blah.dw = REG_DWORD 32-bit number)
- *
- * Licensed under GNU GPL v2. See LICENSE and README for details.
  *
  */
 
@@ -1461,6 +1460,7 @@ int main(int argc, char *argv[])
 #if ENABLE_LOGGING
 	LOG("winregfs %s (%s) started for hive %s\n", VER, VERDATE, file);
 #endif
+	fprintf(stderr, "Reminder: ALWAYS back up hives before using winregfs 0.x on them.\n");
 	i = fuse_main(argc, argv, &winregfs_oper, wd);
 	close_hive(wd->hive);
 #if ENABLE_LOGGING

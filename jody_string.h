@@ -1,7 +1,8 @@
 /*
- * Jody Bruchon's string function library  <jody@jodybruchon.com>
- * Copyright (C) 2015-2017
- * Distributed under the GNU General Public License version 2
+ * Jody Bruchon's string function library
+ *
+ * Copyright (C) 2015-2020 by Jody Bruchon <jody@jodybruchon.com>
+ * See jody_string.c for license information
  */
 
 #ifndef JODY_STRING_H
