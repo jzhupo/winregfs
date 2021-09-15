@@ -308,7 +308,7 @@ void invalidate_nk_cache(void)
 
 	DLOG("winregfs cache invalidated\n");
 	LOCK();
-	for (i=0; i < NKOFS_CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
+	for (i = 0; i < NKOFS_CACHE_ITEMS; i++) wd->nk_hash[i] = '\0';
 	UNLOCK();
 	return;
 }
@@ -331,11 +331,10 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 	/* Check the cached path to avoid extra traversals */
 	hash = cache_hash(keypath);
 
-	LOCK();
-
 	/* Work backwards in the hash cache ring until we come back
 	 * where we started or encounter a zeroed (non-existent) hash */
 	i = wd->nk_cache_pos;
+	LOCK();
 	while (1) {
 		if (!wd->nk_hash[i]) break;  /* 0 = end of recorded hashes */
 		if (wd->nk_hash[i] == hash) {
@@ -351,6 +350,7 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 					nkofs = trav_path(wd->hive, 0, keypath, TPF_NK_EXACT);
 					if (!nkofs) {
 						LOG("get_path_nkofs: trav_path failed: %s\n", keypath);
+						UNLOCK();
 						return 0;
 					}
 					nkofs += 4;
@@ -361,7 +361,10 @@ static int get_path_nkofs(struct winregfs_data * const restrict wd,
 				}
 			} else { nk_cache_stats(wd, HASH_FAIL); }
 		} else { nk_cache_stats(wd, HASH_MISS); }
-		if (update_cache) return 0;
+		if (update_cache) {
+			UNLOCK();
+			return 0;
+		}
 		/* If we've hit item 0, return the cache ring position to the end of the ring */
 		if (!i) i = NKOFS_CACHE_ITEMS;
 		i--;
