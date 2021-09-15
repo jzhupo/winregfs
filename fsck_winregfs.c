@@ -2,7 +2,7 @@
  * Windows registry "filesystem checker"
  * Reads all the keys in a hive and reports any errors triggered
  *
- * Copyright (C) 2014-2020 by Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2014-2021 by Jody Bruchon <jody@jodybruchon.com>
  * Released under The MIT License
  */
 

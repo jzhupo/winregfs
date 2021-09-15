@@ -1,6 +1,6 @@
 /*
  * Jody Bruchon's string function library  <jody@jodybruchon.com>
- * Copyright (C) 2015-2020
+ * Copyright (C) 2015-2021
  * Released under The MIT License
  */
 

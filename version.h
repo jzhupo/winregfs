@@ -7,6 +7,6 @@
 
 #ifndef WINREGFS_VERSION_H
 #define WINREGFS_VERSION_H
-#define VER "0.7"
-#define VERDATE "2017-03-10"
+#define VER "0.8"
+#define VERDATE "2021-09.15"
 #endif	/* WINREGFS_VERSION_H */

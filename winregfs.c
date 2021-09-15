@@ -1,7 +1,7 @@
 /*
  * Windows Registry FUSE Filesystem
  *
- * Copyright (C) 2014-2020 Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2014-2021 Jody Bruchon <jody@jodybruchon.com>
  * Released under The MIT License
  *
  * Mounts a Windows registry hive file as a filesystem using FUSE

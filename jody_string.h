@@ -1,7 +1,7 @@
 /*
  * Jody Bruchon's string function library
  *
- * Copyright (C) 2015-2020 by Jody Bruchon <jody@jodybruchon.com>
+ * Copyright (C) 2015-2021 by Jody Bruchon <jody@jodybruchon.com>
  * See jody_string.c for license information
  */
 
