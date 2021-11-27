@@ -1035,7 +1035,11 @@ static int winregfs_write(const char * const restrict path,
 		if (type != REG_MULTI_SZ) {
 			for (i = 0; i < newsize; i++) {
 				if (newbuf[i] == '\n' || newbuf[i] == '\r') {
+#if 0
 					newkv->len = (i + 1) << 1;
+#else
+					newbuf[i] = '\0';
+#endif
 					break;
 				}
 			}
